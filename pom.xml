@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Copyright (c) 2001-2015, Zoltan Farkas All Rights Reserved.
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.spf4j</groupId>
+  <artifactId>spf4j-logback</artifactId>
+  <version>1.2.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <parent>
+    <groupId>org.spf4j</groupId>
+    <artifactId>spf4j</artifactId>
+    <version>8.6.2</version>
+  </parent>
+  <name>${project.artifactId}-${project.version}</name>
+  <description>Logback message formatters and appenders</description>
+  <properties>
+    <spf4j.version>8.6.2</spf4j.version>
+    <avro.version>1.8.1.45p</avro.version>
+  </properties>
+
+  <scm>
+    <connection>scm:git:https://github.com/zolyfarkas/spf4j-logback.git</connection>
+    <developerConnection>scm:git:https://github.com/zolyfarkas/spf4j-logback.git</developerConnection>
+    <url>https://github.com/zolyfarkas/spf4j-logback/</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <dependencies>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.spf4j.avro</groupId>
+      <artifactId>core-schema</artifactId>
+      <version>${core-schema.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.spf4j</groupId>
+      <artifactId>spf4j-core</artifactId>
+      <version>${spf4j.version}</version>
+    </dependency>
+  </dependencies>
+</project>
