@@ -101,7 +101,7 @@ public final class Converters {
   public static Throwable convert(final IThrowableProxy throwable) {
     String message = throwable.getMessage();
     IThrowableProxy cause = throwable.getCause();
-    return new Throwable(throwable.getClass().getName(),
+    return new Throwable(throwable.getClassName(),
             message == null ? "" : message,
             convert(throwable.getStackTraceElementProxyArray()),
             cause == null ? null : convert(cause),
