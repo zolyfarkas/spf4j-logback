@@ -20,11 +20,17 @@ import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.spi.LifeCycle;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import org.apache.avro.Schema;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
 import org.apache.avro.util.Arrays;
+import org.codehaus.jackson.JsonEncoding;
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.JsonGenerator;
+import org.codehaus.jackson.util.MinimalPrettyPrinter;
+import org.spf4j.base.Strings;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.io.ByteArrayBuilder;
 
@@ -44,7 +50,23 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
     writer = new ExtendedSpecificDatumWriter(LogRecord.class);
     bab = new ByteArrayBuilder(128);
     try {
-      encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), bab);
+      JsonGenerator g = Schema.FACTORY.createJsonGenerator(bab, JsonEncoding.UTF8);
+      g.setPrettyPrinter(new MinimalPrettyPrinter(Strings.EOL) {
+        @Override
+        public void writeArrayValueSeparator(final JsonGenerator jg) throws IOException, JsonGenerationException {
+          jg.writeRaw(',');
+          jg.writeRaw(Strings.EOL);
+          jg.writeRaw('\t');
+        }
+
+
+        @Override
+        public void beforeArrayValues(final JsonGenerator jg) throws IOException, JsonGenerationException {
+          jg.writeRaw(Strings.EOL);
+          jg.writeRaw('\t');
+        }
+      });
+      encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), g);
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }

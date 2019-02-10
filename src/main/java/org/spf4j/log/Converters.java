@@ -41,15 +41,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.slf4j.Marker;
 import org.spf4j.base.Slf4jMessageFormatter;
-import static org.spf4j.base.avro.Converters.convert;
 import org.spf4j.base.avro.FileLocation;
 import org.spf4j.base.avro.LogLevel;
 import org.spf4j.base.avro.LogRecord;
@@ -63,14 +60,15 @@ import org.spf4j.base.avro.Throwable;
 @ParametersAreNonnullByDefault
 public final class Converters {
 
-  private Converters() { }
+  private Converters() {
+  }
 
   public static StackTraceElement convert(final StackTraceElementProxy stackTrace) {
     java.lang.StackTraceElement stackTraceElement = stackTrace.getStackTraceElement();
     String className = stackTraceElement.getClassName();
     String fileName = stackTraceElement.getFileName();
     return new StackTraceElement(new Method(className, stackTraceElement.getMethodName()),
-            fileName == null ? null :  new FileLocation(fileName, stackTraceElement.getLineNumber(), -1),
+            fileName == null ? null : new FileLocation(fileName, stackTraceElement.getLineNumber(), -1),
             org.spf4j.base.PackageInfo.getPackageInfo(className));
   }
 
@@ -123,12 +121,12 @@ public final class Converters {
   }
 
   @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
-  public static  LogRecord convert(final ILoggingEvent event) {
+  public static LogRecord convert(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
     Marker marker = event.getMarker();
     Object[] arguments = event.getArgumentArray();
     String fmt = event.getMessage();
-    StringBuilder msgBuilder = new StringBuilder(fmt.length()+ 8);
+    StringBuilder msgBuilder = new StringBuilder(fmt.length() + 8);
     int index;
     try {
       index = Slf4jMessageFormatter.format(msgBuilder, fmt, arguments);
@@ -153,28 +151,25 @@ public final class Converters {
           }
         }
       }
-      if (nrAttribs == 0) {
-        xArgs = Arrays.asList(Arrays.copyOfRange(arguments, index, arguments.length));
+      if (nrAttribs + index == arguments.length) {
+        xArgs = Collections.EMPTY_LIST;
       } else {
-        if (nrAttribs + index == arguments.length) {
-          xArgs = Collections.EMPTY_LIST;
-        } else {
-          xArgs = new ArrayList<>(arguments.length - nrAttribs - index);
-        }
-        attribs = Maps.newHashMapWithExpectedSize(nrAttribs + (marker == null ? 0 : 1));
-        for (Object obj : arguments) {
-          if (obj instanceof LogAttribute) {
-            String name = ((LogAttribute) obj).getName();
-            if (!"trId".equals(name)) {
-              attribs.put(name, ((LogAttribute) obj).getValue());
-            }
-          } else {
-            xArgs.add(obj);
+        xArgs = new ArrayList<>(arguments.length - nrAttribs - index);
+      }
+      attribs = Maps.newHashMapWithExpectedSize(nrAttribs + (marker == null ? 0 : 1));
+      for (int i = index; i < arguments.length; i++) {
+        Object obj = arguments[i];
+        if (obj instanceof LogAttribute) {
+          String name = ((LogAttribute) obj).getName();
+          if (!"trId".equals(name)) {
+            attribs.put(name, ((LogAttribute) obj).getValue());
           }
+        } else {
+          xArgs.add(obj);
         }
-        if (marker != null) {
-          attribs.put(marker.getName(), marker);
-        }
+      }
+      if (marker != null) {
+        attribs.put(marker.getName(), marker);
       }
     }
     return new LogRecord("", traceId, convert(event.getLevel()),
@@ -183,7 +178,5 @@ public final class Converters {
             extraThrowable == null ? null : convert(extraThrowable), xArgs,
             attribs == null ? Collections.EMPTY_MAP : attribs);
   }
-
-
 
 }
