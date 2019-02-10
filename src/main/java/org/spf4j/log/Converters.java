@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.slf4j.Marker;
+import org.spf4j.base.Arrays;
 import org.spf4j.base.Slf4jMessageFormatter;
 import org.spf4j.base.avro.FileLocation;
 import org.spf4j.base.avro.LogLevel;
@@ -125,6 +126,9 @@ public final class Converters {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
     Marker marker = event.getMarker();
     Object[] arguments = event.getArgumentArray();
+    if (arguments == null) {
+      arguments = Arrays.EMPTY_OBJ_ARRAY;
+    }
     String fmt = event.getMessage();
     StringBuilder msgBuilder = new StringBuilder(fmt.length() + 8);
     int index;

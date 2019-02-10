@@ -31,6 +31,7 @@ import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.util.MinimalPrettyPrinter;
 import org.spf4j.base.Strings;
+import org.spf4j.base.Throwables;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.io.ByteArrayBuilder;
 
@@ -86,7 +87,11 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
       encoder.flush();
       return bab.toByteArray();
     } catch (IOException ex) {
+      Throwables.writeTo(ex, System.err, Throwables.PackageDetail.SHORT);
       throw new UncheckedIOException(ex);
+    } catch (RuntimeException ex) {
+      Throwables.writeTo(ex, System.err, Throwables.PackageDetail.SHORT);
+      throw ex;
     }
   }
 
