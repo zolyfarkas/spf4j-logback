@@ -20,9 +20,9 @@ import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.spi.LifeCycle;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.avro.Schema;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.Encoder;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
 import org.apache.avro.util.Arrays;
@@ -41,36 +41,41 @@ import org.spf4j.io.ByteArrayBuilder;
  */
 public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements LifeCycle {
 
-  private final DatumWriter<LogRecord> writer;
-
-  private final Encoder encoder;
+  private final ExtendedSpecificDatumWriter<LogRecord> writer;
 
   private final ByteArrayBuilder bab;
+
+  private  JsonGenerator gen;
 
   public AvroLogbackEncoder() {
     writer = new ExtendedSpecificDatumWriter(LogRecord.class);
     bab = new ByteArrayBuilder(128);
+    gen = createJsonGen(bab);
+  }
+
+  private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
+    JsonGenerator agen;
     try {
-      JsonGenerator g = Schema.FACTORY.createJsonGenerator(bab, JsonEncoding.UTF8);
-      g.setPrettyPrinter(new MinimalPrettyPrinter(Strings.EOL) {
-        @Override
-        public void writeArrayValueSeparator(final JsonGenerator jg) throws IOException, JsonGenerationException {
-          jg.writeRaw(',');
-          jg.writeRaw(Strings.EOL);
-          jg.writeRaw('\t');
-        }
-
-
-        @Override
-        public void beforeArrayValues(final JsonGenerator jg) throws IOException, JsonGenerationException {
-          jg.writeRaw(Strings.EOL);
-          jg.writeRaw('\t');
-        }
-      });
-      encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), g);
+      agen = Schema.FACTORY.createJsonGenerator(bab, JsonEncoding.UTF8);
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
+    agen.setPrettyPrinter(new MinimalPrettyPrinter(Strings.EOL) {
+      @Override
+      public void writeArrayValueSeparator(final JsonGenerator jg) throws IOException, JsonGenerationException {
+        jg.writeRaw(',');
+        jg.writeRaw(Strings.EOL);
+        jg.writeRaw('\t');
+      }
+
+
+      @Override
+      public void beforeArrayValues(final JsonGenerator jg) throws IOException, JsonGenerationException {
+        jg.writeRaw(Strings.EOL);
+        jg.writeRaw('\t');
+      }
+    });
+    return agen;
   }
 
   @Override
@@ -79,20 +84,42 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
   }
 
   @Override
-  public byte[] encode(final ILoggingEvent event) {
+  public synchronized byte[] encode(final ILoggingEvent event) {
+    LogRecord record = null;
     try {
-      bab.reset();
-      LogRecord record = Converters.convert(event);
-      writer.write(record, encoder);
-      encoder.flush();
-      return bab.toByteArray();
+      record = Converters.convert(event);
+      return serializeAvro(record);
     } catch (IOException ex) {
+      System.err.append("\nFailed to log: " + record + '\n');
+      try {
+        gen.flush();
+      } catch (IOException ex1) {
+       throw new UncheckedIOException(ex1);
+      }
+      System.err.append("\nWritten: " + new String(bab.toByteArray()) + '\n');
       Throwables.writeTo(ex, System.err, Throwables.PackageDetail.SHORT);
+      gen = createJsonGen(bab);
       throw new UncheckedIOException(ex);
     } catch (RuntimeException ex) {
+      System.err.append("\nFailed to log " + record + '\n');
+      try {
+        gen.flush();
+      } catch (IOException ex1) {
+       throw new UncheckedIOException(ex1);
+      }
+      System.err.append("\nWritten: " + new String(bab.toByteArray()) + '\n');
       Throwables.writeTo(ex, System.err, Throwables.PackageDetail.SHORT);
+      gen = createJsonGen(bab);
       throw ex;
     }
+  }
+
+  public byte[] serializeAvro(final LogRecord record) throws IOException {
+    ExtendedJsonEncoder encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), gen);
+    bab.reset();
+    writer.write(record, encoder);
+    encoder.flush();
+    return bab.toByteArray();
   }
 
   @Override
