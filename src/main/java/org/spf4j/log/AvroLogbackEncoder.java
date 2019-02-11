@@ -20,6 +20,7 @@ import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.spi.LifeCycle;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import org.apache.avro.Schema;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
@@ -80,7 +81,7 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
 
   @Override
   public byte[] headerBytes() {
-    return Arrays.EMPTY_BYTE_ARRAY;
+    return LogRecord.getClassSchema().toString().getBytes(StandardCharsets.UTF_8);
   }
 
   @Override
