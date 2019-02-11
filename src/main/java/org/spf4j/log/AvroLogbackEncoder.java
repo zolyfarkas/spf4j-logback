@@ -19,9 +19,12 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.spi.LifeCycle;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import org.apache.avro.AvroNamesRefResolver;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaResolvers;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
 import org.apache.avro.util.Arrays;
@@ -29,6 +32,7 @@ import org.codehaus.jackson.JsonEncoding;
 import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.util.MinimalPrettyPrinter;
+import org.spf4j.base.Json;
 import org.spf4j.base.Strings;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.io.ByteArrayBuilder;
@@ -81,7 +85,20 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
 
   @Override
   public byte[] headerBytes() {
-    return LogRecord.getClassSchema().toString().getBytes(StandardCharsets.UTF_8);
+
+    try {
+      ByteArrayBuilder bb = new ByteArrayBuilder();
+      OutputStreamWriter osw = new OutputStreamWriter(bb, StandardCharsets.UTF_8);
+      JsonGenerator jgen = Json.FACTORY.createJsonGenerator(osw);
+      LogRecord.getClassSchema().toJson(new AvroNamesRefResolver(SchemaResolvers.getDefault()), jgen);
+      jgen.flush();
+      osw.append('\n');
+      osw.flush();
+      return bb.toByteArray();
+    } catch (IOException ex) {
+      this.addError("Failed to write header for " + LogRecord.class, ex);
+      return Arrays.EMPTY_BYTE_ARRAY;
+    }
   }
 
   @Override

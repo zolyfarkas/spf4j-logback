@@ -35,6 +35,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
+import ch.qos.logback.classic.spi.ThrowableProxy;
 import com.google.common.collect.Maps;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
@@ -52,6 +53,7 @@ import org.spf4j.base.avro.FileLocation;
 import org.spf4j.base.avro.LogLevel;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.base.avro.Method;
+import org.spf4j.base.avro.RemoteException;
 import org.spf4j.base.avro.StackTraceElement;
 import org.spf4j.base.avro.Throwable;
 
@@ -99,6 +101,12 @@ public final class Converters {
 
   public static Throwable convert(final IThrowableProxy throwable) {
     String message = throwable.getMessage();
+    if (throwable instanceof ThrowableProxy && throwable.getClassName().equals(RemoteException.class.getName())) {
+        return new Throwable(throwable.getClassName(),
+                message == null ? "" : message, convert(throwable.getStackTraceElementProxyArray()),
+                ((RemoteException) ((ThrowableProxy) throwable).getThrowable()).getRemoteCause(),
+                convert(throwable.getSuppressed()));
+    }
     IThrowableProxy cause = throwable.getCause();
     return new Throwable(throwable.getClassName(),
             message == null ? "" : message,
