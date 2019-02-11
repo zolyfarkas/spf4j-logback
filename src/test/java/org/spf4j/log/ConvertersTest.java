@@ -32,7 +32,7 @@ public class ConvertersTest {
   @Test
   public void testSomeMethod() throws IOException {
     StringBuilder msgBuilder = new StringBuilder("someMessage");
-    for (int i = 0; i < 100000; i++) {
+    for (int i = 0; i < 20; i++) {
       msgBuilder.append('a');
     }
     LogRecord rec = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", msgBuilder.toString(), null,

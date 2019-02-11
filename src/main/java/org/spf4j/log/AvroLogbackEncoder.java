@@ -20,8 +20,6 @@ import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.spi.LifeCycle;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.avro.Schema;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
@@ -31,7 +29,6 @@ import org.codehaus.jackson.JsonGenerationException;
 import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.util.MinimalPrettyPrinter;
 import org.spf4j.base.Strings;
-import org.spf4j.base.Throwables;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.io.ByteArrayBuilder;
 
@@ -43,14 +40,17 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
 
   private final ExtendedSpecificDatumWriter<LogRecord> writer;
 
+  private ExtendedJsonEncoder encoder;
+
   private final ByteArrayBuilder bab;
 
   private  JsonGenerator gen;
 
-  public AvroLogbackEncoder() {
+  public AvroLogbackEncoder() throws IOException {
     writer = new ExtendedSpecificDatumWriter(LogRecord.class);
     bab = new ByteArrayBuilder(128);
     gen = createJsonGen(bab);
+    encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), gen);
   }
 
   private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
@@ -84,38 +84,37 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
   }
 
   @Override
-  public synchronized byte[] encode(final ILoggingEvent event) {
-    LogRecord record = null;
+  public byte[] encode(final ILoggingEvent event) {
+    LogRecord record;
     try {
-      record = Converters.convert(event);
-      return serializeAvro(record);
-    } catch (IOException ex) {
-      System.err.append("\nFailed to log: " + record + '\n');
+       record = Converters.convert(event);
+    } catch (RuntimeException ex){
+      this.addError("Failed to convert " + event, ex);
+      return Arrays.EMPTY_BYTE_ARRAY;
+    }
+    synchronized (bab) {
       try {
-        gen.flush();
-      } catch (IOException ex1) {
-       throw new UncheckedIOException(ex1);
+        return serializeAvro(record);
+      } catch (IOException | RuntimeException ex) {
+        this.addError("Failed to serialize " + record, ex);
+        try {
+          gen.flush();
+        } catch (IOException ex1) {
+         throw new UncheckedIOException(ex1);
+        }
+        this.addError("Failed at:" + new String(bab.toByteArray()) + '\n');
+        gen = createJsonGen(bab);
+        try {
+          encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), gen);
+        } catch (IOException ex1) {
+          this.addError("Cannot ", ex1);
+        }
+        return Arrays.EMPTY_BYTE_ARRAY;
       }
-      System.err.append("\nWritten: " + new String(bab.toByteArray()) + '\n');
-      Throwables.writeTo(ex, System.err, Throwables.PackageDetail.SHORT);
-      gen = createJsonGen(bab);
-      throw new UncheckedIOException(ex);
-    } catch (RuntimeException ex) {
-      System.err.append("\nFailed to log " + record + '\n');
-      try {
-        gen.flush();
-      } catch (IOException ex1) {
-       throw new UncheckedIOException(ex1);
-      }
-      System.err.append("\nWritten: " + new String(bab.toByteArray()) + '\n');
-      Throwables.writeTo(ex, System.err, Throwables.PackageDetail.SHORT);
-      gen = createJsonGen(bab);
-      throw ex;
     }
   }
 
   public byte[] serializeAvro(final LogRecord record) throws IOException {
-    ExtendedJsonEncoder encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), gen);
     bab.reset();
     writer.write(record, encoder);
     encoder.flush();
