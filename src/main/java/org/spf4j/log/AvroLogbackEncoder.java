@@ -25,6 +25,8 @@ import java.nio.charset.StandardCharsets;
 import org.apache.avro.AvroNamesRefResolver;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaResolvers;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.Encoder;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
 import org.apache.avro.util.Arrays;
@@ -38,34 +40,11 @@ import org.spf4j.base.avro.LogRecord;
 import org.spf4j.io.ByteArrayBuilder;
 
 /**
- *
  * @author Zoltan Farkas
  */
 public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements LifeCycle {
 
-  private final ExtendedSpecificDatumWriter<LogRecord> writer;
-
-  private ExtendedJsonEncoder encoder;
-
-  private final ByteArrayBuilder bab;
-
-  private  JsonGenerator gen;
-
-  public AvroLogbackEncoder() throws IOException {
-    writer = new ExtendedSpecificDatumWriter(LogRecord.class);
-    bab = new ByteArrayBuilder(128);
-    gen = createJsonGen(bab);
-    encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), gen);
-  }
-
-  private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
-    JsonGenerator agen;
-    try {
-      agen = Schema.FACTORY.createJsonGenerator(bab, JsonEncoding.UTF8);
-    } catch (IOException ex) {
-      throw new UncheckedIOException(ex);
-    }
-    agen.setPrettyPrinter(new MinimalPrettyPrinter(Strings.EOL) {
+    private static final MinimalPrettyPrinter JSON_FMT = new MinimalPrettyPrinter(Strings.EOL) {
       @Override
       public void writeArrayValueSeparator(final JsonGenerator jg) throws IOException, JsonGenerationException {
         jg.writeRaw(',');
@@ -79,13 +58,42 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
         jg.writeRaw(Strings.EOL);
         jg.writeRaw('\t');
       }
-    });
+    };
+
+  private final ByteArrayBuilder bab;
+
+  private final DatumWriter writer;
+
+  private Encoder encoder;
+
+  public AvroLogbackEncoder() {
+    bab = new ByteArrayBuilder(128);
+    writer = new ExtendedSpecificDatumWriter(LogRecord.class);
+    initEncoder();
+  }
+
+
+  public void initEncoder() {
+      try {
+        encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), createJsonGen(bab));
+      } catch (IOException ex) {
+        this.addError("Cannot ", ex);
+      }
+  }
+
+  private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
+    JsonGenerator agen;
+    try {
+      agen = Schema.FACTORY.createJsonGenerator(bab, JsonEncoding.UTF8);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    agen.setPrettyPrinter(JSON_FMT);
     return agen;
   }
 
   @Override
   public byte[] headerBytes() {
-
     try {
       ByteArrayBuilder bb = new ByteArrayBuilder();
       OutputStreamWriter osw = new OutputStreamWriter(bb, StandardCharsets.UTF_8);
@@ -116,17 +124,13 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
       } catch (IOException | RuntimeException ex) {
         this.addError("Failed to serialize " + record, ex);
         try {
-          gen.flush();
+          encoder.flush();
         } catch (IOException ex1) {
          throw new UncheckedIOException(ex1);
+        } finally {
+          initEncoder();
         }
         this.addError("Failed at:" + new String(bab.toByteArray()) + '\n');
-        gen = createJsonGen(bab);
-        try {
-          encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), gen);
-        } catch (IOException ex1) {
-          this.addError("Cannot ", ex1);
-        }
         return Arrays.EMPTY_BYTE_ARRAY;
       }
     }

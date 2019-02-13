@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
+import org.junit.Assert;
 import org.junit.Test;
 import org.spf4j.base.avro.LogLevel;
 import org.spf4j.base.avro.LogRecord;
@@ -46,6 +47,28 @@ public class ConvertersTest {
             ImmutableMap.of("a", "b", "c", ""));
         System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
             System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
+
+  }
+
+  @Test
+  public void testSerErrorr() throws IOException {
+
+    LogRecord rec = new LogRecord("", "bla", null, Instant.now(), "test", "text", "abc", null,
+            Collections.EMPTY_LIST,
+            ImmutableMap.of("a", "b", "c", "d"));
+    AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
+    try {
+      System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
+      Assert.fail();
+    } catch (RuntimeException ex) {
+      // expected
+    }
+    LogRecord rec2 = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", "abc", null,
+            Collections.EMPTY_LIST,
+            ImmutableMap.of("a", "b", "c", "d"));
+    avroLogbackEncoder.initEncoder();
+    System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
+
 
   }
 
