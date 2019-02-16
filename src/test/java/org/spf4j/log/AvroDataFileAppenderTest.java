@@ -49,13 +49,11 @@ public class AvroDataFileAppenderTest {
     appender.setFileNameBase("testAvroLog");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     appender.start();
-    File theFile = appender.getCurrentFile();
     appender.append(new TestLogEvent());
     appender.append(new TestLogEvent());
     appender.stop();
-    FileReader<LogRecord> reader = DataFileReader.openReader(theFile, new SpecificDatumReader<>(LogRecord.class));
     int i = 0;
-    for (LogRecord rec : reader) {
+    for (LogRecord rec : appender.getLogs()) {
       LOG.debug("retrieved", rec);
       i++;
     }

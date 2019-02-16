@@ -26,7 +26,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.file.CodecFactory;
+import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.FileBasedLock;
@@ -50,6 +52,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   private LocalDate fileDate;
 
   private File currentFile;
+
+  private FileBasedLock currentFileLock;
 
   private File destinationPath;
 
@@ -87,6 +91,15 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return currentFile;
   }
 
+  @JmxExport
+  public void flush() throws IOException {
+    writer.flush();
+  }
+
+  public Iterable<LogRecord> getLogs() throws IOException {
+    return DataFileReader.openReader(currentFile, new SpecificDatumReader<>(LogRecord.class));
+  }
+
   @Override
   public void stop() {
     try {
@@ -118,6 +131,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     } else {
       if (writer != null) {
         writer.close();
+        currentFileLock.unlock();
       }
       fileDate = target;
       writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
@@ -126,20 +140,16 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       String fileName = fileNameBase + '_' + target.toString() + ".avro";
       currentFile = new File(destinationPath, fileName);
-      FileBasedLock lock = FileBasedLock.getLock(new File(destinationPath, fileName + ".lock"));
-      boolean locked = lock.tryLock(1, TimeUnit.MINUTES);
+      currentFileLock = FileBasedLock.getLock(new File(destinationPath, fileName + ".lock"));
+      boolean locked = currentFileLock.tryLock(1, TimeUnit.MINUTES);
       if (locked) {
-        try {
-          if (currentFile.canWrite()) {
-            writer = writer.appendTo(currentFile);
-          } else {
-            writer.create(LogRecord.getClassSchema(), currentFile);
-          }
-        } finally {
-          lock.unlock();
+        if (currentFile.canWrite()) {
+          writer = writer.appendTo(currentFile);
+        } else {
+          writer.create(LogRecord.getClassSchema(), currentFile);
         }
       } else {
-        throw new IOException("cannot acquire lock " + lock);
+        throw new IOException("cannot acquire lock " + currentFileLock);
       }
     }
   }
