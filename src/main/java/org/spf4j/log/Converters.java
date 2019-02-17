@@ -31,7 +31,6 @@
  */
 package org.spf4j.log;
 
-import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
@@ -115,19 +114,43 @@ public final class Converters {
             convert(throwable.getSuppressed()));
   }
 
-  public static LogLevel convert(final Level level) {
-    if (level.levelInt >= Level.ERROR_INT) {
+  public static java.lang.Throwable convert2(final IThrowableProxy throwable) {
+    if (throwable instanceof ThrowableProxy) {
+      return ((ThrowableProxy) throwable).getThrowable();
+    }
+    throw new UnsupportedOperationException("Cannot convert " + throwable);
+  }
+
+  public static LogLevel convert(final ch.qos.logback.classic.Level level) {
+    if (level.levelInt >= ch.qos.logback.classic.Level.ERROR_INT) {
       return LogLevel.ERROR;
-    } else if (level.levelInt >= Level.WARN_INT) {
+    } else if (level.levelInt >= ch.qos.logback.classic.Level.WARN_INT) {
       return LogLevel.WARN;
-    } else if (level.levelInt >= Level.INFO_INT) {
+    } else if (level.levelInt >= ch.qos.logback.classic.Level.INFO_INT) {
       return LogLevel.INFO;
-    } else if (level.levelInt >= Level.DEBUG_INT) {
+    } else if (level.levelInt >= ch.qos.logback.classic.Level.DEBUG_INT) {
       return LogLevel.DEBUG;
     } else {
       return LogLevel.TRACE;
     }
   }
+
+
+  public static Level convert2(final ch.qos.logback.classic.Level level) {
+    if (level.levelInt >= ch.qos.logback.classic.Level.ERROR_INT) {
+      return Level.ERROR;
+    } else if (level.levelInt >= ch.qos.logback.classic.Level.WARN_INT) {
+      return Level.WARN;
+    } else if (level.levelInt >= ch.qos.logback.classic.Level.INFO_INT) {
+      return Level.INFO;
+    } else if (level.levelInt >= ch.qos.logback.classic.Level.DEBUG_INT) {
+      return Level.DEBUG;
+    } else {
+      return Level.TRACE;
+    }
+  }
+
+
 
   @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
   public static LogRecord convert(final ILoggingEvent event) {
@@ -190,5 +213,23 @@ public final class Converters {
             extraThrowable == null ? null : convert(extraThrowable), xArgs,
             attribs == null ? Collections.EMPTY_MAP : attribs);
   }
+
+
+
+  @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
+  public static Slf4jLogRecord convert2(final ILoggingEvent event) {
+    IThrowableProxy extraThrowable = event.getThrowableProxy();
+    Object [] arguments;
+    if (extraThrowable == null) {
+      arguments = event.getArgumentArray();
+    } else {
+      arguments = Arrays.append(event.getArgumentArray(), convert2(extraThrowable));
+    }
+    return new Slf4jLogRecordImpl(false, event.getLoggerName(), convert2(event.getLevel()),
+            event.getMarker(), event.getTimeStamp(), event.getMessage(), arguments);
+  }
+
+
+
 
 }
