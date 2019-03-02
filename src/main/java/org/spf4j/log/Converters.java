@@ -209,9 +209,9 @@ public final class Converters {
     }
     return new LogRecord("", traceId, convert(event.getLevel()),
             Instant.ofEpochMilli(event.getTimeStamp()),
-            event.getLoggerName(), event.getThreadName(), msgBuilder.toString(),
-            extraThrowable == null ? null : convert(extraThrowable), xArgs,
-            attribs == null ? Collections.EMPTY_MAP : attribs);
+            event.getLoggerName(), event.getThreadName(), msgBuilder.toString(), xArgs,
+            attribs == null ? Collections.EMPTY_MAP : attribs,
+            extraThrowable == null ? null : convert(extraThrowable));
   }
 
 

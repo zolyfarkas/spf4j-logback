@@ -36,15 +36,15 @@ public class ConvertersTest {
     for (int i = 0; i < 20; i++) {
       msgBuilder.append('a');
     }
-    LogRecord rec = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", msgBuilder.toString(), null,
+    LogRecord rec = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", msgBuilder.toString(),
             Collections.EMPTY_LIST,
-            ImmutableMap.of("a", "b", "c", "d"));
+            ImmutableMap.of("a", "b", "c", "d"), null);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
     System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
     LogRecord rec2 = new LogRecord("", "", LogLevel.DEBUG, Instant.now(), "test", "text", "someMessage",
-            org.spf4j.base.avro.Converters.convert(new RuntimeException(new IOException("bla"))),
             Collections.EMPTY_LIST,
-            ImmutableMap.of("a", "b", "c", ""));
+            ImmutableMap.of("a", "b", "c", ""),
+            org.spf4j.base.avro.Converters.convert(new RuntimeException(new IOException("bla"))));
         System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
             System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
 
@@ -53,9 +53,9 @@ public class ConvertersTest {
   @Test
   public void testSerErrorr() throws IOException {
 
-    LogRecord rec = new LogRecord("", "bla", null, Instant.now(), "test", "text", "abc", null,
+    LogRecord rec = new LogRecord("", "bla", null, Instant.now(), "test", "text", "abc",
             Collections.EMPTY_LIST,
-            ImmutableMap.of("a", "b", "c", "d"));
+            ImmutableMap.of("a", "b", "c", "d"), null);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
     try {
       System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
@@ -63,9 +63,9 @@ public class ConvertersTest {
     } catch (RuntimeException ex) {
       // expected
     }
-    LogRecord rec2 = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", "abc", null,
+    LogRecord rec2 = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", "abc",
             Collections.EMPTY_LIST,
-            ImmutableMap.of("a", "b", "c", "d"));
+            ImmutableMap.of("a", "b", "c", "d"), null);
     avroLogbackEncoder.initEncoder();
     System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
 
