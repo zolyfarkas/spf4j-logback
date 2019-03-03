@@ -115,6 +115,7 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
     try {
        record = Converters.convert(event);
     } catch (RuntimeException ex){
+      org.spf4j.base.Runtime.error("Failed to convert " + event, ex);
       this.addError("Failed to convert " + event, ex);
       return Arrays.EMPTY_BYTE_ARRAY;
     }
@@ -122,6 +123,7 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
       try {
         return serializeAvro(record);
       } catch (IOException | RuntimeException ex) {
+        org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
         this.addError("Failed to serialize " + record, ex);
         try {
           encoder.flush();
