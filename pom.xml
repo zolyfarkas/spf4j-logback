@@ -32,7 +32,7 @@
   <description>Logback message formatters and appenders</description>
   <properties>
     <spf4j.version>8.6.4-SNAPSHOT</spf4j.version>
-    <avro.version>1.8.1.49p</avro.version>
+    <avro.version>1.9.0.0p</avro.version>
   </properties>
 
   <scm>

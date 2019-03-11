@@ -18,6 +18,10 @@ package org.spf4j.log;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.encoder.EncoderBase;
 import ch.qos.logback.core.spi.LifeCycle;
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
@@ -30,10 +34,6 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.ExtendedJsonEncoder;
 import org.apache.avro.specific.ExtendedSpecificDatumWriter;
 import org.apache.avro.util.Arrays;
-import org.codehaus.jackson.JsonEncoding;
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.util.MinimalPrettyPrinter;
 import org.spf4j.base.Json;
 import org.spf4j.base.Strings;
 import org.spf4j.base.avro.LogRecord;
@@ -84,7 +84,7 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
   private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
     JsonGenerator agen;
     try {
-      agen = Schema.FACTORY.createJsonGenerator(bab, JsonEncoding.UTF8);
+      agen = Schema.FACTORY.createGenerator(bab, JsonEncoding.UTF8);
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
