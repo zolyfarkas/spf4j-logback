@@ -15,24 +15,18 @@
  */
 package org.spf4j.log;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.classic.spi.IThrowableProxy;
-import ch.qos.logback.classic.spi.LoggerContextVO;
-import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.time.ZoneId;
-import java.util.Collections;
-import java.util.Map;
+import java.time.temporal.ChronoUnit;
+import java.util.logging.Level;
 import org.junit.Assert;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.file.FileReader;
-import org.apache.avro.specific.SpecificDatumReader;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
-import org.spf4j.base.Arrays;
 import org.spf4j.base.avro.LogRecord;
 
 /**
@@ -45,7 +39,7 @@ public class AvroDataFileAppenderTest {
   @Test
   public void testAvroDataFileAppender() throws IOException {
     AvroDataFileAppender appender = new AvroDataFileAppender();
-    appender.setDestinationPath(new File(org.spf4j.base.Runtime.TMP_FOLDER));
+    appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     appender.start();
@@ -53,7 +47,7 @@ public class AvroDataFileAppenderTest {
     appender.append(new TestLogEvent());
     appender.stop();
     int i = 0;
-    for (LogRecord rec : appender.getLogs()) {
+    for (LogRecord rec : appender.getCurrentLogs()) {
       LOG.debug("retrieved", rec);
       i++;
     }
@@ -61,85 +55,58 @@ public class AvroDataFileAppenderTest {
 
   }
 
-  private static class TestLogEvent implements ILoggingEvent {
 
-    public TestLogEvent() {
-    }
+ @Test
+  public void testAvroDataFileAppender2() throws IOException {
+    Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))
+            .filter((p) ->
+                    p.getFileName().toString().startsWith("testAvroLog")
+            )
+            .forEach((p) -> {
+      try {
+        Files.delete(p);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
+      }
+    });
 
-    @Override
-    public String getThreadName() {
-      return "test";
-    }
 
-    @Override
-    public Level getLevel() {
-      return Level.INFO;
+    AvroDataFileAppender appender = new AvroDataFileAppender();
+    appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
+    appender.setFileNameBase("testAvroLog");
+    appender.setPartitionZoneID(ZoneId.systemDefault().getId());
+    appender.start();
+    appender.append(new TestLogEvent());
+    appender.append(new TestLogEvent(Instant.now().minus(1, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent(Instant.now().minus(2, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent(Instant.now().minus(3, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent());
+    appender.stop();
+    int i = 0;
+    Iterable<LogRecord> logs = appender.getLogs(0, 100);
+    for (LogRecord rec : logs) {
+      LOG.debug("retrieved1", rec);
+      i++;
     }
+    Assert.assertEquals(5, i);
+    i = 0;
+    logs = appender.getLogs(2, 100);
+    for (LogRecord rec : logs) {
+      LOG.debug("retrieved2", rec);
+      i++;
+    }
+    Assert.assertEquals(3, i);
+    i = 0;
+    logs = appender.getLogs(3, 100);
+    for (LogRecord rec : logs) {
+      LOG.debug("retrieved3", rec);
+      i++;
+    }
+    Assert.assertEquals(2, i);
 
-    @Override
-    public String getMessage() {
-      return "message";
-    }
 
-    @Override
-    public Object[] getArgumentArray() {
-      return Arrays.EMPTY_OBJ_ARRAY;
-    }
-
-    @Override
-    public String getFormattedMessage() {
-      return "message";
-    }
-
-    @Override
-    public String getLoggerName() {
-      return "logger";
-    }
-
-    @Override
-    public LoggerContextVO getLoggerContextVO() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public IThrowableProxy getThrowableProxy() {
-      return null;
-    }
-
-    @Override
-    public StackTraceElement[] getCallerData() {
-      throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-    @Override
-    public boolean hasCallerData() {
-      return false;
-    }
-
-    @Override
-    public Marker getMarker() {
-      return null;
-    }
-
-    @Override
-    public Map<String, String> getMDCPropertyMap() {
-      return Collections.EMPTY_MAP;
-    }
-
-    @Override
-    public Map<String, String> getMdc() {
-      return Collections.EMPTY_MAP;
-    }
-
-    @Override
-    public long getTimeStamp() {
-      return System.currentTimeMillis();
-    }
-
-    @Override
-    public void prepareForDeferredProcessing() {
-      // do notyhing;
-    }
   }
+
+
 
 }

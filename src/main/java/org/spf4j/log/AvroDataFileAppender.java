@@ -19,15 +19,24 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import java.io.File;
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.file.FileReader;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.spf4j.base.avro.LogRecord;
@@ -51,11 +60,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   private LocalDate fileDate;
 
-  private File currentFile;
+  private Path currentFile;
 
   private FileBasedLock currentFileLock;
 
-  private File destinationPath;
+  private Path destinationPath;
 
   private ZoneId zoneId;
 
@@ -63,7 +72,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   public AvroDataFileAppender() {
     zoneId = ZULU;
-    fileNameBase = ManagementFactory.getRuntimeMXBean().getName();
+    fileNameBase = org.spf4j.base.Runtime.PROCESS_NAME;
     setName("avroLogAppender");
 
     try {
@@ -78,8 +87,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     this.fileNameBase = fileNameBase;
   }
 
-  public void setDestinationPath(final File destinationPath) {
-    this.destinationPath = destinationPath;
+  public void setDestinationPath(final String destinationPath) {
+    this.destinationPath = Paths.get(destinationPath);
   }
 
   public void setPartitionZoneID(final String zoneId) {
@@ -87,7 +96,41 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   @JmxExport
-  public File getCurrentFile() {
+  public Path getDestinationPath() {
+    return destinationPath;
+  }
+
+  public List<Path> getLogFiles() throws IOException {
+    List<Path> files = Files.walk(destinationPath)
+            .filter((path) -> {
+              Path fileName = path.getFileName();
+              if (fileName == null) {
+                return false;
+              }
+              String name = fileName.toString();
+              return name.startsWith(fileNameBase) && name.endsWith(".avro");
+             })
+            .collect(Collectors.toList());
+    Collections.sort(files, (p1 , p2) -> {
+      return p1.getFileName().toString().compareTo(p2.getFileName().toString());
+    });
+    return files;
+  }
+
+  public List<Path> getOldLogFiles() throws IOException {
+    List<Path> logFiles = getLogFiles();
+    int idx = 0;
+    for (Path p : logFiles) {
+      if (p.equals(currentFile)) {
+        break;
+      }
+      idx++;
+    }
+    return logFiles.subList(0, idx);
+  }
+
+  @JmxExport
+  public Path getCurrentFile() {
     return currentFile;
   }
 
@@ -96,9 +139,65 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     writer.flush();
   }
 
-  public Iterable<LogRecord> getLogs() throws IOException {
-    return DataFileReader.openReader(currentFile, new SpecificDatumReader<>(LogRecord.class));
+  public FileReader<LogRecord> getCurrentLogs() throws IOException {
+    flush();
+    return DataFileReader.openReader(currentFile.toFile(), new SpecificDatumReader<>(LogRecord.class));
   }
+
+  public Iterable<LogRecord> getLogs(final long ptailOffset, final int limit) throws IOException {
+    if (isStarted()) {
+      flush();
+    }
+    ArrayDeque<LogRecord> result = new ArrayDeque<>(limit);
+    // try to get from previous file.
+    List<Path> logFiles = getLogFiles();
+    if (logFiles.isEmpty()) {
+      return result;
+    }
+    int i = logFiles.size() - 1;
+    long tailOffset = ptailOffset;
+    while (result.size() < limit && i >= 0) {
+      Path p = logFiles.get(i);
+      long nrRecs = getNrLogs(p);
+      nrRecs -= tailOffset;
+      if (nrRecs <= 0) {
+        tailOffset = -nrRecs;
+      }  else {
+        tailOffset = 0;
+      }
+      long toSkip = nrRecs - (limit - result.size());
+      FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
+      if (toSkip > 0) {
+        skip(reader, toSkip);
+      }
+      while (reader.hasNext() && nrRecs > 0 && result.size() < limit) {
+        result.addLast(reader.next());
+        nrRecs--;
+      }
+      i--;
+    }
+    return result;
+  }
+
+  public static void skip(final FileReader<LogRecord> it,  final long count) throws IOException {
+    LogRecord tmp = new LogRecord();
+    for (long i = 0; i< count; i++) {
+      it.next(tmp);
+    }
+  }
+
+  public static long getNrLogs(final Path file) throws IOException {
+    GenericDatumReader<Object> reader = new GenericDatumReader<Object>();
+    try (DataFileStream<Object> streamReader = new DataFileStream<Object>(Files.newInputStream(file), reader)) {
+      long count = 0L;
+      while (streamReader.hasNext()) {
+        count += streamReader.getBlockCount();
+        streamReader.nextBlock();
+      }
+      return count;
+    }
+  }
+
 
   @Override
   public void stop() {
@@ -139,14 +238,14 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         writer.setCodec(codecFact);
       }
       String fileName = fileNameBase + '_' + target.toString() + ".avro";
-      currentFile = new File(destinationPath, fileName);
-      currentFileLock = FileBasedLock.getLock(new File(destinationPath, fileName + ".lock"));
+      currentFile = destinationPath.resolve(fileName);
+      currentFileLock = FileBasedLock.getLock(new File(destinationPath.toFile(), fileName + ".lock"));
       boolean locked = currentFileLock.tryLock(1, TimeUnit.MINUTES);
       if (locked) {
-        if (currentFile.canWrite()) {
-          writer = writer.appendTo(currentFile);
+        if (Files.isWritable(currentFile)) {
+          writer = writer.appendTo(currentFile.toFile());
         } else {
-          writer.create(LogRecord.getClassSchema(), currentFile);
+          writer.create(LogRecord.getClassSchema(), currentFile.toFile());
         }
       } else {
         throw new IOException("cannot acquire lock " + currentFileLock);
