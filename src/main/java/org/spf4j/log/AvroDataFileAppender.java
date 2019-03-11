@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileStream;
@@ -249,7 +250,15 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       currentFileLock = FileBasedLock.getLock(new File(destinationPath.toFile(), fileName + ".lock"));
       boolean locked = currentFileLock.tryLock(1, TimeUnit.MINUTES);
       if (locked) {
-        if (Files.isWritable(currentFile)) {
+        boolean valid  = true;
+        try {
+         getNrLogs(currentFile);
+        } catch (AvroRuntimeException ex) {
+          org.spf4j.base.Runtime.error("Invalid long file " + currentFile, ex);
+          Files.move(currentFile, currentFile.getParent().resolve(currentFile.getFileName().toString() + ".bad"));
+          valid =  false;
+        }
+        if (valid && Files.isWritable(currentFile)) {
           writer = writer.appendTo(currentFile.toFile());
         } else {
           writer.create(LogRecord.getClassSchema(), currentFile.toFile());

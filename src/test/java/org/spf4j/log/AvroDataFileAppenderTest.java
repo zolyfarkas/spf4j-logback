@@ -115,7 +115,7 @@ public class AvroDataFileAppenderTest {
 
  @Test
   public void testAvroDataFileAppenderAsync() throws IOException, InterruptedException {
-    deleteTestFiles();
+ // deleteTestFiles();
     final AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
