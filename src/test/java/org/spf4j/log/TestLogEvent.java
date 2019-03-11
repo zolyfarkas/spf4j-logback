@@ -31,15 +31,22 @@ class TestLogEvent implements ILoggingEvent {
 
     private final Instant instant;
 
-    private final long id;
+    private final String message;
+
+    private final Object[] args;
 
     public TestLogEvent() {
       this(Instant.now());
     }
 
     public TestLogEvent(final Instant instant) {
+      this(instant, "message " + CNT.getAndIncrement(), Arrays.EMPTY_OBJ_ARRAY);
+    }
+
+    public TestLogEvent(final Instant instant, final String message, final Object... args) {
       this.instant = instant;
-      this.id = CNT.getAndIncrement();
+      this.message = message;
+      this.args = args;
     }
 
     @Override
@@ -54,22 +61,22 @@ class TestLogEvent implements ILoggingEvent {
 
     @Override
     public String getMessage() {
-      return "message " + id;
+      return message;
     }
 
     @Override
     public Object[] getArgumentArray() {
-      return Arrays.EMPTY_OBJ_ARRAY;
+      return args;
     }
 
     @Override
     public String getFormattedMessage() {
-      return "message";
+      throw new UnsupportedOperationException();
     }
 
     @Override
     public String getLoggerName() {
-      return "logger";
+      return "test.logger";
     }
 
     @Override

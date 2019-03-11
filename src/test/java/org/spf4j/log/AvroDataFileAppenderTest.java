@@ -123,7 +123,7 @@ public class AvroDataFileAppenderTest {
     appender.start();
     Future<Object> submit = DefaultExecutor.instance().submit(() -> {
       while (true)  {
-        appender.append(new TestLogEvent());
+        appender.append(new TestLogEvent(Instant.now(), "", "a", 3, 4, LogAttribute.traceId("cucu")));
         Thread.sleep(1);
       }
     });

@@ -26,19 +26,16 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.FileReader;
-import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.spf4j.base.avro.LogRecord;
@@ -139,7 +136,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   @JmxExport
   public synchronized long flush() throws IOException {
     long sync = writer.sync();
-    writer.flush();
+    writer.fSync();
     return sync;
   }
 
@@ -197,16 +194,12 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public static long getNrLogs(final Path file) throws IOException {
-    GenericDatumReader<Object> reader = new GenericDatumReader<Object>();
-    try (DataFileStream<Object> streamReader = new DataFileStream<Object>(Files.newInputStream(file), reader)) {
+    SpecificDatumReader<LogRecord> reader = new SpecificDatumReader<>(LogRecord.class);
+    try (DataFileStream<LogRecord> streamReader = new DataFileStream<LogRecord>(Files.newInputStream(file), reader)) {
       long count = 0L;
-      try {
-        while (streamReader.hasNext()) {
-          count += streamReader.getBlockCount();
-          streamReader.nextBlock();
-        }
-      } catch (AvroRuntimeException ex) {
-        // reached the end and it might be corupt due to concurent writing.
+      while (streamReader.hasNext()) {
+        count += streamReader.getBlockCount();
+        streamReader.nextBlock();
       }
       return count;
     }
