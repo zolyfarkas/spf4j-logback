@@ -148,7 +148,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return DataFileReader.openReader(currentFile.toFile(), new SpecificDatumReader<>(LogRecord.class));
   }
 
-  public List<LogRecord> getLogs(final long ptailOffset, final int limit) throws IOException {
+  public List<LogRecord> getLogs(final String originPrefix, final long ptailOffset, final int limit)
+          throws IOException {
     if (isStarted()) {
       flush();
     }
@@ -177,7 +178,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       List<LogRecord> intermediate = new ArrayList<>(left);
       while (nrRecs > 0 && intermediate.size() < limit) {
-        intermediate.add(reader.next());
+        LogRecord log = reader.next();
+        log.setOrigin(originPrefix + ':' + p);
+        intermediate.add(log);
         nrRecs--;
       }
       intermediate.addAll(result);
@@ -250,15 +253,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       currentFileLock = FileBasedLock.getLock(new File(destinationPath.toFile(), fileName + ".lock"));
       boolean locked = currentFileLock.tryLock(1, TimeUnit.MINUTES);
       if (locked) {
-        boolean valid  = true;
-        try {
-         getNrLogs(currentFile);
-        } catch (AvroRuntimeException ex) {
-          org.spf4j.base.Runtime.error("Invalid long file " + currentFile, ex);
-          Files.move(currentFile, currentFile.getParent().resolve(currentFile.getFileName().toString() + ".bad"));
-          valid =  false;
-        }
-        if (valid && Files.isWritable(currentFile)) {
+        if (Files.isWritable(currentFile) && isValidFile(currentFile)) {
           writer = writer.appendTo(currentFile.toFile());
         } else {
           writer.create(LogRecord.getClassSchema(), currentFile.toFile());
@@ -267,6 +262,18 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         throw new IOException("cannot acquire lock " + currentFileLock);
       }
     }
+  }
+
+  public static  boolean isValidFile(final Path file) throws IOException {
+    boolean valid  = true;
+    try {
+      getNrLogs(file);
+    } catch (AvroRuntimeException ex) {
+      org.spf4j.base.Runtime.error("Invalid long file " + file, ex);
+      Files.move(file, file.getParent().resolve(file.getFileName().toString() + ".bad"));
+      valid =  false;
+    }
+    return valid;
   }
 
   @Override

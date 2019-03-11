@@ -74,21 +74,21 @@ public class AvroDataFileAppenderTest {
     appender.append(new TestLogEvent());
     appender.stop();
     int i = 0;
-    Iterable<LogRecord> logs = appender.getLogs(0, 100);
+    Iterable<LogRecord> logs = appender.getLogs("local", 0, 100);
     for (LogRecord rec : logs) {
       LOG.debug("retrieved1", rec);
       i++;
     }
     Assert.assertEquals(5, i);
     i = 0;
-    logs = appender.getLogs(2, 100);
+    logs = appender.getLogs("local", 2, 100);
     for (LogRecord rec : logs) {
       LOG.debug("retrieved2", rec);
       i++;
     }
     Assert.assertEquals(3, i);
     i = 0;
-    logs = appender.getLogs(3, 100);
+    logs = appender.getLogs("local", 3, 100);
     for (LogRecord rec : logs) {
       LOG.debug("retrieved3", rec);
       i++;
@@ -115,7 +115,7 @@ public class AvroDataFileAppenderTest {
 
  @Test
   public void testAvroDataFileAppenderAsync() throws IOException, InterruptedException {
- // deleteTestFiles();
+    deleteTestFiles();
     final AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
@@ -127,12 +127,13 @@ public class AvroDataFileAppenderTest {
         Thread.sleep(1);
       }
     });
-    for (int i = 1; i < 1000; i++) {
-      List<LogRecord> logs = appender.getLogs(0, 100);
+    for (int i = 1; i < 100; i++) {
+      List<LogRecord> logs = appender.getLogs("local", 0, 100);
       Thread.sleep(1);
       LOG.debug("read {} logs", logs.size());
     }
     submit.cancel(true);
+    appender.stop();
   }
 
 
