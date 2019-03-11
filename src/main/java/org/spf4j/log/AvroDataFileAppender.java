@@ -27,6 +27,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -140,15 +141,17 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public FileReader<LogRecord> getCurrentLogs() throws IOException {
-    flush();
-    return DataFileReader.openReader(currentFile.toFile(), new SpecificDatumReader<>(LogRecord.class));
-  }
-
-  public Iterable<LogRecord> getLogs(final long ptailOffset, final int limit) throws IOException {
     if (isStarted()) {
       flush();
     }
-    ArrayDeque<LogRecord> result = new ArrayDeque<>(limit);
+    return DataFileReader.openReader(currentFile.toFile(), new SpecificDatumReader<>(LogRecord.class));
+  }
+
+  public List<LogRecord> getLogs(final long ptailOffset, final int limit) throws IOException {
+    if (isStarted()) {
+      flush();
+    }
+    List<LogRecord> result = Collections.EMPTY_LIST;
     // try to get from previous file.
     List<Path> logFiles = getLogFiles();
     if (logFiles.isEmpty()) {
@@ -165,15 +168,19 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }  else {
         tailOffset = 0;
       }
-      long toSkip = nrRecs - (limit - result.size());
+      int left = limit - result.size();
+      long toSkip = nrRecs - left;
       FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
       if (toSkip > 0) {
         skip(reader, toSkip);
       }
+      List<LogRecord> intermediate = new ArrayList<>(left);
       while (reader.hasNext() && nrRecs > 0 && result.size() < limit) {
-        result.addLast(reader.next());
+        intermediate.add(reader.next());
         nrRecs--;
       }
+      intermediate.addAll(result);
+      result = intermediate;
       i--;
     }
     return result;

@@ -22,7 +22,6 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.logging.Level;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -38,6 +37,7 @@ public class AvroDataFileAppenderTest {
 
   @Test
   public void testAvroDataFileAppender() throws IOException {
+    deleteTestFiles();
     AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
@@ -58,19 +58,7 @@ public class AvroDataFileAppenderTest {
 
  @Test
   public void testAvroDataFileAppender2() throws IOException {
-    Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))
-            .filter((p) ->
-                    p.getFileName().toString().startsWith("testAvroLog")
-            )
-            .forEach((p) -> {
-      try {
-        Files.delete(p);
-      } catch (IOException ex) {
-        throw new UncheckedIOException(ex);
-      }
-    });
-
-
+    deleteTestFiles();
     AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
@@ -105,6 +93,20 @@ public class AvroDataFileAppenderTest {
     Assert.assertEquals(2, i);
 
 
+  }
+
+  public void deleteTestFiles() throws IOException {
+    Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))
+            .filter((p) ->
+                    p.getFileName().toString().startsWith("testAvroLog")
+            )
+            .forEach((p) -> {
+              try {
+                Files.delete(p);
+              } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+              }
+            });
   }
 
 
