@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileStream;
@@ -177,7 +178,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         skip(reader, toSkip);
       }
       List<LogRecord> intermediate = new ArrayList<>(left);
-      while (reader.hasNext() && nrRecs > 0 && result.size() < limit) {
+      while (nrRecs > 0 && intermediate.size() < limit) {
         intermediate.add(reader.next());
         nrRecs--;
       }
@@ -199,9 +200,13 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     GenericDatumReader<Object> reader = new GenericDatumReader<Object>();
     try (DataFileStream<Object> streamReader = new DataFileStream<Object>(Files.newInputStream(file), reader)) {
       long count = 0L;
-      while (streamReader.hasNext()) {
-        count += streamReader.getBlockCount();
-        streamReader.nextBlock();
+      try {
+        while (streamReader.hasNext()) {
+          count += streamReader.getBlockCount();
+          streamReader.nextBlock();
+        }
+      } catch (AvroRuntimeException ex) {
+        // reached the end and it might be corupt due to concurent writing.
       }
       return count;
     }
