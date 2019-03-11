@@ -22,11 +22,14 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.concurrent.Future;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spf4j.base.avro.LogRecord;
+import org.spf4j.concurrent.DefaultExecutor;
 
 /**
  * @author Zoltan Farkas
@@ -107,6 +110,29 @@ public class AvroDataFileAppenderTest {
                 throw new UncheckedIOException(ex);
               }
             });
+  }
+
+
+ @Test
+  public void testAvroDataFileAppenderAsync() throws IOException, InterruptedException {
+    deleteTestFiles();
+    final AvroDataFileAppender appender = new AvroDataFileAppender();
+    appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
+    appender.setFileNameBase("testAvroLog");
+    appender.setPartitionZoneID(ZoneId.systemDefault().getId());
+    appender.start();
+    Future<Object> submit = DefaultExecutor.instance().submit(() -> {
+      while (true)  {
+        appender.append(new TestLogEvent());
+        Thread.sleep(1);
+      }
+    });
+    for (int i = 1; i < 1000; i++) {
+      List<LogRecord> logs = appender.getLogs(0, 100);
+      Thread.sleep(1);
+      LOG.debug("read {} logs", logs.size());
+    }
+    submit.cancel(true);
   }
 
 

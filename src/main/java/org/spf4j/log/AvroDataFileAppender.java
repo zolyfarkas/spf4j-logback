@@ -136,8 +136,10 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   @JmxExport
-  public void flush() throws IOException {
+  public synchronized long flush() throws IOException {
+    long sync = writer.sync();
     writer.flush();
+    return sync;
   }
 
   public FileReader<LogRecord> getCurrentLogs() throws IOException {
