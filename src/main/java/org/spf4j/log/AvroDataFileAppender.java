@@ -29,7 +29,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.avro.AvroRuntimeException;
@@ -44,6 +44,8 @@ import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.FileBasedLock;
 import org.spf4j.jmx.JmxExport;
 import org.spf4j.jmx.Registry;
+import org.spf4j.zel.vm.CompileException;
+import org.spf4j.zel.vm.Program;
 
 /**
  * an Appender that will log into binary avro data files.
@@ -174,16 +176,22 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return DataFileReader.openReader(currentFile.toFile(), new SpecificDatumReader<>(LogRecord.class));
   }
 
-  public List<LogRecord> getLogs(final String originPrefix, final long ptailOffset, final int limit)
+  public List<LogRecord> getLogs(
+          final String originPrefix, final long ptailOffset, final int limit)
           throws IOException {
-    if (isStarted()) {
-      flush();
-    }
+    return getLogs(getLogFiles(), originPrefix, ptailOffset, limit);
+  }
+
+  private List<LogRecord> getLogs(final List<Path> logFiles,
+          final String originPrefix, final long ptailOffset, final int limit)
+          throws IOException {
     List<LogRecord> result = Collections.EMPTY_LIST;
     // try to get from previous file.
-    List<Path> logFiles = getLogFiles();
     if (logFiles.isEmpty()) {
       return result;
+    }
+    if (isStarted()) {
+      flush();
     }
     int i = logFiles.size() - 1;
     long tailOffset = ptailOffset;
@@ -201,11 +209,15 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
       if (toSkip > 0) {
         skip(reader, toSkip);
+      } else {
+        toSkip = 0;
       }
       List<LogRecord> intermediate = new ArrayList<>(left);
       while (nrRecs > 0 && intermediate.size() < left) {
         LogRecord log = reader.next();
-        log.setOrigin(originPrefix + ':' + p);
+        if (originPrefix != null) {
+          log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
+        }
         intermediate.add(log);
         nrRecs--;
       }
@@ -214,6 +226,55 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       i--;
     }
     return result;
+  }
+
+  public List<LogRecord> getFilteredLogs(final String originPrefix, final long ptailOffset,
+          final int limit, final String filter)
+          throws IOException, CompileException, ExecutionException, InterruptedException {
+    List<Path> logFiles = getLogFiles();
+    if (logFiles.isEmpty()) {
+      return Collections.EMPTY_LIST;
+    }
+    if (isStarted()) {
+      flush();
+    }
+    Program prog = Program.compile(filter, "log");
+    File tmp = writeResultSet(logFiles, originPrefix, prog);
+    try {
+      return getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit);
+    } finally {
+      tmp.delete();
+    }
+  }
+
+  private File writeResultSet(List<Path> logFiles, final String originPrefix, Program prog)
+          throws IOException, ExecutionException, InterruptedException {
+    File tmp = File.createTempFile("scan", "tmp.avro", this.destinationPath.toFile());
+    try {
+      DataFileWriter<LogRecord> writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
+      if (codecFact != null) {
+        writer.setCodec(codecFact);
+      }
+      writer.create(LogRecord.getClassSchema(),tmp);
+      for (int i = 0, l = logFiles.size(); i < l; i++) {
+        Path p = logFiles.get(i);
+        FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
+        int loc = 0;
+        while (reader.hasNext()) {
+          LogRecord log = reader.next();
+          log.setOrigin(originPrefix + ':' + p + ':' + (loc++));
+          Boolean filtered = (Boolean) prog.execute(log);
+          if (filtered) {
+            writer.append(log);
+          }
+        }
+      }
+      writer.close();
+    } catch (IOException | ExecutionException | InterruptedException | RuntimeException ex)  {
+      tmp.delete();
+      throw ex;
+    }
+    return tmp;
   }
 
   public static void skip(final FileReader<LogRecord> it,  final long count) throws IOException {
