@@ -136,6 +136,6 @@ public class AvroDataFileAppenderTest {
     appender.stop();
   }
 
-
+ 
 
 }

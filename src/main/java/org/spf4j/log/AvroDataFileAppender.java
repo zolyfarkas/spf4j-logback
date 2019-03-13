@@ -29,6 +29,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.avro.AvroRuntimeException;
@@ -80,6 +81,26 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       codecFact = CodecFactory.snappyCodec();
     } catch (ClassNotFoundException ex) {
      codecFact = null;
+    }
+  }
+
+  public void setCodec(final String codec) {
+    if (codec == null) {
+      codecFact = null;
+      return;
+    }
+    switch (codec) {
+      case "snappy":
+        codecFact = CodecFactory.snappyCodec();
+        return;
+      case "bzip2":
+        codecFact = CodecFactory.bzip2Codec();
+        return;
+      case "deflate":
+        codecFact = CodecFactory.deflateCodec(1);
+        return;
+      default:
+        throw new UnsupportedOperationException("Unsupported codec: " + codec);
     }
   }
 
@@ -141,6 +162,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return sync;
   }
 
+  @JmxExport
+  public long getNrLogs() throws IOException {
+    return getNrLogs(currentFile);
+  }
+
   public FileReader<LogRecord> getCurrentLogs() throws IOException {
     if (isStarted()) {
       flush();
@@ -177,7 +203,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         skip(reader, toSkip);
       }
       List<LogRecord> intermediate = new ArrayList<>(left);
-      while (nrRecs > 0 && intermediate.size() < limit) {
+      while (nrRecs > 0 && intermediate.size() < left) {
         LogRecord log = reader.next();
         log.setOrigin(originPrefix + ':' + p);
         intermediate.add(log);
