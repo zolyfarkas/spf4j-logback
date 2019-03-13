@@ -129,13 +129,14 @@ public class AvroDataFileAppenderTest {
     });
     for (int i = 1; i < 100; i++) {
       List<LogRecord> logs = appender.getLogs("local", 0, 100);
-      Thread.sleep(1);
       LOG.debug("read {} logs", logs.size());
+      Assert.assertTrue(logs.size() <= 100);
+      Thread.sleep(1);
     }
     submit.cancel(true);
     appender.stop();
   }
 
- 
+
 
 }
