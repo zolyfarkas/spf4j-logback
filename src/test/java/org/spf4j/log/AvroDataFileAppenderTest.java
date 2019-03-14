@@ -48,6 +48,7 @@ import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.exec.store.sys.store.provider.ZookeeperPersistentStoreProvider;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -194,6 +195,7 @@ public class AvroDataFileAppenderTest {
 
 
  @Test
+ @Ignore
   public void testdrill() throws IOException, InterruptedException, Exception {
     final AvroDataFileAppender appender = new AvroDataFileAppender();
     String destFolder = new File(org.spf4j.base.Runtime.TMP_FOLDER + "/avro").getCanonicalPath();
