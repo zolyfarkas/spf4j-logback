@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.DefaultExecutor;
 import org.spf4j.zel.vm.CompileException;
+import org.spf4j.zel.vm.Program;
 
 /**
  * @author Zoltan Farkas
@@ -119,7 +120,8 @@ public class AvroDataFileAppenderTest {
     }
     Assert.assertEquals(2, i);
 
-    List<LogRecord> filteredLogs = appender.getFilteredLogs("test", 0, 10, "log.msg == 'message 4'");
+    List<LogRecord> filteredLogs = appender.getFilteredLogs("test", 0, 10,
+            Program.compilePredicate("log.msg == 'message 4'", "log"));
     LOG.debug("filtered logs", filteredLogs);
     Assert.assertEquals(1, filteredLogs.size());
     Assert.assertTrue(filteredLogs.get(0).getOrigin().endsWith("1"));

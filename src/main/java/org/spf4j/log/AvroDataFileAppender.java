@@ -29,8 +29,8 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.CodecFactory;
@@ -44,8 +44,6 @@ import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.FileBasedLock;
 import org.spf4j.jmx.JmxExport;
 import org.spf4j.jmx.Registry;
-import org.spf4j.zel.vm.CompileException;
-import org.spf4j.zel.vm.Program;
 
 /**
  * an Appender that will log into binary avro data files.
@@ -229,8 +227,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public List<LogRecord> getFilteredLogs(final String originPrefix, final long ptailOffset,
-          final int limit, final String filter)
-          throws IOException, CompileException, ExecutionException, InterruptedException {
+          final int limit, final Predicate<LogRecord> pred)
+          throws IOException {
     List<Path> logFiles = getLogFiles();
     if (logFiles.isEmpty()) {
       return Collections.EMPTY_LIST;
@@ -238,8 +236,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     if (isStarted()) {
       flush();
     }
-    Program prog = Program.compile(filter, "log");
-    File tmp = writeResultSet(logFiles, originPrefix, prog);
+    File tmp = writeResultSet(logFiles, originPrefix, pred);
     try {
       return getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit);
     } finally {
@@ -247,8 +244,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
   }
 
-  private File writeResultSet(List<Path> logFiles, final String originPrefix, Program prog)
-          throws IOException, ExecutionException, InterruptedException {
+  private File writeResultSet(final List<Path> logFiles, final String originPrefix,
+          final Predicate<LogRecord> pred)
+          throws IOException {
     File tmp = File.createTempFile("scan", "tmp.avro", this.destinationPath.toFile());
     try {
       DataFileWriter<LogRecord> writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
@@ -263,14 +261,13 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         while (reader.hasNext()) {
           LogRecord log = reader.next();
           log.setOrigin(originPrefix + ':' + p + ':' + (loc++));
-          Boolean filtered = (Boolean) prog.execute(log);
-          if (filtered) {
+          if (pred.test(log)) {
             writer.append(log);
           }
         }
       }
       writer.close();
-    } catch (IOException | ExecutionException | InterruptedException | RuntimeException ex)  {
+    } catch (IOException | RuntimeException ex)  {
       tmp.delete();
       throw ex;
     }

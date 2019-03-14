@@ -52,6 +52,7 @@
     <dependency>
       <groupId>org.spf4j</groupId>
       <artifactId>spf4j-zel</artifactId>
+      <scope>test</scope>
       <version>${spf4j.version}</version>
     </dependency>
     <dependency>
