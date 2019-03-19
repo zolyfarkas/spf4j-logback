@@ -26,13 +26,13 @@
   <parent>
     <groupId>org.spf4j</groupId>
     <artifactId>spf4j</artifactId>
-    <version>8.6.4-SNAPSHOT</version>
+    <version>8.6.4</version>
   </parent>
   <name>${project.artifactId}-${project.version}</name>
   <description>Logback message formatters and appenders</description>
   <properties>
-    <spf4j.version>8.6.4-SNAPSHOT</spf4j.version>
-    <avro.version>1.9.0.0p</avro.version>
+    <spf4j.version>8.6.5-SNAPSHOT</spf4j.version>
+    <avro.version>1.9.0.1p</avro.version>
   </properties>
 
   <scm>
@@ -42,12 +42,39 @@
     <tag>HEAD</tag>
   </scm>
 
+<build>
+  <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <properties>
+            <property>
+              <name>listener</name>
+              <value>org.spf4j.junit.Spf4jRunListener,org.spf4j.test.log.junit4.DetailOnFailureRunListener</value>
+            </property>
+            <property>
+              <name>spf4j.junit.sampleTimeMillis</name>
+              <value>5</value>
+            </property>
+          </properties>
+        </configuration>
+      </plugin>
+  </plugins>
+</build>
+
   <dependencies>
     <dependency>
       <groupId>org.spf4j</groupId>
       <artifactId>spf4j-slf4j-test</artifactId>
       <scope>test</scope>
       <version>${spf4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.spf4j</groupId>
+      <artifactId>spf4j-junit</artifactId>
+      <version>${spf4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.spf4j</groupId>

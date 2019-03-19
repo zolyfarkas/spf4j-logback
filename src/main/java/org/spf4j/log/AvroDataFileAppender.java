@@ -180,6 +180,15 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return getLogs(getLogFiles(), originPrefix, ptailOffset, limit);
   }
 
+  /**
+   * Returns all logs in order they have been written to the log files.
+   * @param logFiles
+   * @param originPrefix
+   * @param ptailOffset
+   * @param limit
+   * @return
+   * @throws IOException
+   */
   private List<LogRecord> getLogs(final List<Path> logFiles,
           final String originPrefix, final long ptailOffset, final int limit)
           throws IOException {

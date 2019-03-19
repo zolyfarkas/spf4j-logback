@@ -15,9 +15,11 @@
  */
 package org.spf4j.log;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -41,6 +43,7 @@ import org.apache.drill.exec.rpc.DrillRpcFuture;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
+import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.avro.AvroFormatConfig;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
@@ -142,6 +145,25 @@ public class AvroDataFileAppenderTest {
             });
   }
 
+ @Test
+ @Ignore
+  public void testLoadLogFile() throws IOException, InterruptedException {
+    final AvroDataFileAppender appender = new AvroDataFileAppender();
+    appender.setDestinationPath(new File("./src/test/resources").getCanonicalPath().toString());
+    appender.setFileNameBase("jaxrs-spf4j-demo");
+    appender.setPartitionZoneID(ZoneId.systemDefault().getId());
+    List<LogRecord> logs = appender.getLogs("test", 0, 10);
+    LogPrinter printer = new LogPrinter(StandardCharsets.UTF_8);
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    for (LogRecord record : logs) {
+      printer.print(record, bos);
+    }
+    LOG.debug("written {} bytes", bos.size());
+//    LOG.debug("logs", logs.get(0));
+//    LOG.debug("logs", logs.toArray());
+    Assert.assertTrue(logs.size() == 10);
+  }
+
 
  @Test
   public void testAvroDataFileAppenderAsync() throws IOException, InterruptedException {
@@ -183,12 +205,16 @@ public class AvroDataFileAppenderTest {
 
     Map<String, WorkspaceConfig> workspaces = new HashMap<>();
     workspaces.putAll(fileSystemConfig.getWorkspaces());
-    workspaces.put("avro", new WorkspaceConfig(avroPath, false, "avro", false));
+    workspaces.put("tmp", new WorkspaceConfig(avroPath, true, "avro", false));
+    workspaces.put("avro", new WorkspaceConfig(avroPath, true, "avro", false));
+    workspaces.put(SchemaFactory.DEFAULT_WS_NAME, new WorkspaceConfig(avroPath, true, "avro", false));
+
     FileSystemConfig newFileSystemConfig = new FileSystemConfig(
         fileSystemConfig.getConnection(),
         fileSystemConfig.getConfig(),
         workspaces,
         newFormats);
+
     newFileSystemConfig.setEnabled(true);
     pluginRegistry.createOrUpdate(storagePlugin, newFileSystemConfig, true);
   }
