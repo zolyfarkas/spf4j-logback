@@ -68,8 +68,6 @@ public class ConvertersTest {
             ImmutableMap.of("a", "b", "c", "d"), null);
     avroLogbackEncoder.initEncoder();
     System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
-
-
   }
 
 }

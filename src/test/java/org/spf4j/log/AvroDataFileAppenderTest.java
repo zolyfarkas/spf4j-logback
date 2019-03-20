@@ -88,6 +88,34 @@ public class AvroDataFileAppenderTest {
   }
 
 
+  private static class BrokenBean {
+    public String getCrap() {
+      throw new RuntimeException("yes!");
+    }
+  }
+
+
+  @Test
+  public void testAvroDataFileAppender3() throws IOException {
+    deleteTestFiles();
+    AvroDataFileAppender appender = new AvroDataFileAppender();
+    appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
+    appender.setFileNameBase("testAvroLog");
+    appender.setPartitionZoneID(ZoneId.systemDefault().getId());
+    appender.start();
+    appender.append(new TestLogEvent(Instant.now(), "", new BrokenBean()));
+    appender.append(new TestLogEvent());
+    appender.append(new TestLogEvent());
+    appender.stop();
+    int i = 0;
+    for (LogRecord rec : appender.getCurrentLogs()) {
+      LOG.debug("retrieved", rec);
+      i++;
+    }
+    Assert.assertEquals(2, i);
+
+  }
+
  @Test
   public void testAvroDataFileAppender2() throws IOException, CompileException, ExecutionException, InterruptedException {
     deleteTestFiles();
