@@ -376,11 +376,14 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       try {
         ensurePartition(record.getTs());
       } catch (IOException | InterruptedException | RuntimeException ex) {
+        org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
         this.addError("Unable to setup log file", ex);
+        return;
       }
       try {
         this.writer.append(record);
       } catch (IOException | RuntimeException ex) {
+        org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
         this.addError("Unable to write log " + record, ex);
       }
     }
