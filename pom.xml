@@ -26,13 +26,12 @@
   <parent>
     <groupId>org.spf4j</groupId>
     <artifactId>spf4j</artifactId>
-    <version>8.6.4</version>
+    <version>8.6.6-SNAPSHOT</version>
   </parent>
   <name>${project.artifactId}-${project.version}</name>
   <description>Logback message formatters and appenders</description>
   <properties>
-    <spf4j.version>8.6.5-SNAPSHOT</spf4j.version>
-    <avro.version>1.9.0.1p</avro.version>
+    <spf4j.version>8.6.6-SNAPSHOT</spf4j.version>
   </properties>
 
   <scm>
