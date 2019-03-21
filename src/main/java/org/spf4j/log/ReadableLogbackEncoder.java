@@ -17,7 +17,6 @@ package org.spf4j.log;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.encoder.EncoderBase;
-import ch.qos.logback.core.spi.LifeCycle;
 import java.nio.charset.Charset;
 import java.time.format.DateTimeFormatter;
 import org.apache.avro.util.Arrays;
@@ -25,7 +24,7 @@ import org.apache.avro.util.Arrays;
 /**
  * @author Zoltan Farkas
  */
-public class ReadableLogbackEncoder extends EncoderBase<ILoggingEvent> implements LifeCycle {
+public final class ReadableLogbackEncoder extends EncoderBase<ILoggingEvent> {
 
   /**
    * The charset to use when converting a String into bytes.
@@ -40,8 +39,8 @@ public class ReadableLogbackEncoder extends EncoderBase<ILoggingEvent> implement
     this.charset = Charset.defaultCharset();
   }
 
-  public void setCharset(Charset charset) {
-    this.charset = charset;
+  public void setCharset(final String charsetName) {
+    this.charset = Charset.forName(charsetName);
   }
 
   @Override
@@ -64,6 +63,11 @@ public class ReadableLogbackEncoder extends EncoderBase<ILoggingEvent> implement
   @Override
   public byte[] footerBytes() {
     return Arrays.EMPTY_BYTE_ARRAY;
+  }
+
+  @Override
+  public String toString() {
+    return "ReadableLogbackEncoder{" + "charset=" + charset + ", printer=" + printer + '}';
   }
 
 }

@@ -87,13 +87,12 @@ public class AvroDataFileAppenderTest {
 
   }
 
-
   private static class BrokenBean {
+
     public String getCrap() {
       throw new RuntimeException("yes!");
     }
   }
-
 
   @Test
   public void testAvroDataFileAppender3() throws IOException {
@@ -116,7 +115,7 @@ public class AvroDataFileAppenderTest {
 
   }
 
- @Test
+  @Test
   public void testAvroDataFileAppender2() throws IOException, CompileException, ExecutionException, InterruptedException {
     deleteTestFiles();
     AvroDataFileAppender appender = new AvroDataFileAppender();
@@ -130,6 +129,7 @@ public class AvroDataFileAppenderTest {
     appender.append(new TestLogEvent(Instant.now().minus(3, ChronoUnit.DAYS)));
     appender.append(new TestLogEvent());
     appender.stop();
+    LOG.debug("All Log files: " + appender.getLogFiles());
     int i = 0;
     Iterable<LogRecord> logs = appender.getLogs("local", 0, 100);
     for (LogRecord rec : logs) {
@@ -161,8 +161,8 @@ public class AvroDataFileAppenderTest {
 
   public void deleteTestFiles() throws IOException {
     Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))
-            .filter((p) ->
-                    p.getFileName().toString().startsWith("testAvroLog")
+            .filter((p)
+                    -> p.getFileName().toString().startsWith("testAvroLog")
             )
             .forEach((p) -> {
               try {
@@ -173,8 +173,8 @@ public class AvroDataFileAppenderTest {
             });
   }
 
- @Test
- @Ignore
+  @Test
+  @Ignore
   public void testLoadLogFile() throws IOException, InterruptedException {
     final AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(new File("./src/test/resources").getCanonicalPath().toString());
@@ -192,8 +192,7 @@ public class AvroDataFileAppenderTest {
     Assert.assertTrue(logs.size() == 10);
   }
 
-
- @Test
+  @Test
   public void testAvroDataFileAppenderAsync() throws IOException, InterruptedException {
     deleteTestFiles();
     final AvroDataFileAppender appender = new AvroDataFileAppender();
@@ -202,7 +201,7 @@ public class AvroDataFileAppenderTest {
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     appender.start();
     Future<Object> submit = DefaultExecutor.instance().submit(() -> {
-      while (true)  {
+      while (true) {
         appender.append(new TestLogEvent(Instant.now(), "", "a", 3, 4, LogAttribute.traceId("cucu")));
         Thread.sleep(1);
       }
@@ -217,16 +216,18 @@ public class AvroDataFileAppenderTest {
     appender.stop();
   }
 
-  /** see */
- public static void configureFormatPlugins(StoragePluginRegistry pluginRegistry,
-         String storagePlugin, String avroPath)
-         throws ExecutionSetupException {
+  /**
+   * see
+   */
+  public static void configureFormatPlugins(StoragePluginRegistry pluginRegistry,
+          String storagePlugin, String avroPath)
+          throws ExecutionSetupException {
     FileSystemPlugin fileSystemPlugin = (FileSystemPlugin) pluginRegistry.getPlugin(storagePlugin);
     FileSystemConfig fileSystemConfig = (FileSystemConfig) fileSystemPlugin.getConfig();
 
     Map<String, FormatPluginConfig> newFormats = new HashMap<>();
     Optional.ofNullable(fileSystemConfig.getFormats())
-      .ifPresent(newFormats::putAll);
+            .ifPresent(newFormats::putAll);
 
     AvroFormatConfig avroConfig = new AvroFormatConfig();
     newFormats.put("avro", avroConfig);
@@ -238,18 +239,18 @@ public class AvroDataFileAppenderTest {
     workspaces.put(SchemaFactory.DEFAULT_WS_NAME, new WorkspaceConfig(avroPath, true, "avro", false));
 
     FileSystemConfig newFileSystemConfig = new FileSystemConfig(
-        fileSystemConfig.getConnection(),
-        fileSystemConfig.getConfig(),
-        workspaces,
-        newFormats);
+            fileSystemConfig.getConnection(),
+            fileSystemConfig.getConfig(),
+            workspaces,
+            newFormats);
 
     newFileSystemConfig.setEnabled(true);
     pluginRegistry.createOrUpdate(storagePlugin, newFileSystemConfig, true);
   }
 
-
- @Test
- @Ignore
+  @Test
+  @Ignore
+  // experiments....
   public void testdrill() throws IOException, InterruptedException, Exception {
     final AvroDataFileAppender appender = new AvroDataFileAppender();
     String destFolder = new File(org.spf4j.base.Runtime.TMP_FOLDER + "/avro").getCanonicalPath();
@@ -257,56 +258,50 @@ public class AvroDataFileAppenderTest {
     appender.setFileNameBase("tesAvroLog");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     appender.start();
-    for (int i = 0; i < 1000; i++)  {
-        appender.append(new TestLogEvent(Instant.now(), "", "a", 3, 4, LogAttribute.traceId("cucu")));
-        Thread.sleep(1);
+    for (int i = 0; i < 1000; i++) {
+      appender.append(new TestLogEvent(Instant.now(), "", "a", 3, 4, LogAttribute.traceId("cucu")));
+      Thread.sleep(1);
     }
     appender.stop();
     String TMP_FOLDER = org.spf4j.base.Runtime.TMP_FOLDER;
     Properties props = new Properties();
     // Properties here mimic those in drill-root/pom.xml, Surefire plugin
     // configuration. They allow tests to run successfully in IDE.
-    props.put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, "false");
+    props.setProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, "false");
 
-      // The CTTAS function requires that the default temporary workspace be
-      // writable. By default, the default temporary workspace points to
-      // dfs.tmp. But, the test setup marks dfs.tmp as read-only. To work
-      // around this, tests are supposed to use dfs. So, we need to
-      // set the default temporary workspace to dfs.tmp.
+    // The CTTAS function requires that the default temporary workspace be
+    // writable. By default, the default temporary workspace points to
+    // dfs.tmp. But, the test setup marks dfs.tmp as read-only. To work
+    // around this, tests are supposed to use dfs. So, we need to
+    // set the default temporary workspace to dfs.tmp.
+    props.setProperty(ExecConstants.DEFAULT_TEMPORARY_WORKSPACE, "dfs.tmp");
+    props.setProperty(ExecConstants.HTTP_ENABLE, "false");
+    props.setProperty("drill.catastrophic_to_standard_out", "true");
 
-      props.put(ExecConstants.DEFAULT_TEMPORARY_WORKSPACE, "dfs.tmp");
-      props.put(ExecConstants.HTTP_ENABLE, "false");
-      props.put("drill.catastrophic_to_standard_out", true);
+    // Verbose errors.
+    props.setProperty(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY, "true");
 
-      // Verbose errors.
+    // See Drillbit.close. The Drillbit normally waits a specified amount
+    // of time for ZK registration to drop. But, embedded Drillbits normally
+    // don't use ZK, so no need to wait.
+    props.setProperty(ExecConstants.ZK_REFRESH, "0");
 
-      props.put(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY, true);
+    // This is just a test, no need to be heavy-duty on threads.
+    // This is the number of server and client RPC threads. The
+    // production default is DEFAULT_SERVER_RPC_THREADS.
+    props.setProperty(ExecConstants.BIT_SERVER_RPC_THREADS, "2");
 
-      // See Drillbit.close. The Drillbit normally waits a specified amount
-      // of time for ZK registration to drop. But, embedded Drillbits normally
-      // don't use ZK, so no need to wait.
+    // No need for many scanners except when explicitly testing that
+    // behavior. Production default is DEFAULT_SCAN_THREADS
+    props.setProperty(ExecConstants.SCAN_THREADPOOL_SIZE, "4");
 
-      props.put(ExecConstants.ZK_REFRESH, 0);
-
-      // This is just a test, no need to be heavy-duty on threads.
-      // This is the number of server and client RPC threads. The
-      // production default is DEFAULT_SERVER_RPC_THREADS.
-
-      props.put(ExecConstants.BIT_SERVER_RPC_THREADS, 2);
-
-      // No need for many scanners except when explicitly testing that
-      // behavior. Production default is DEFAULT_SCAN_THREADS
-
-      props.put(ExecConstants.SCAN_THREADPOOL_SIZE, 4);
-
-      // Define a useful root location for the ZK persistent
-      // storage. Profiles will go here when running in distributed
-      // mode.
-
-      props.put(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT,
-              TMP_FOLDER + "/drill/sstore/zk");
-      props.setProperty(ExecConstants.DRILL_TMP_DIR, TMP_FOLDER + "/drill");
-      props.setProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH, TMP_FOLDER + "/drill/sstore");
+    // Define a useful root location for the ZK persistent
+    // storage. Profiles will go here when running in distributed
+    // mode.
+    props.setProperty(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT,
+            TMP_FOLDER + "/drill/sstore/zk");
+    props.setProperty(ExecConstants.DRILL_TMP_DIR, TMP_FOLDER + "/drill");
+    props.setProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH, TMP_FOLDER + "/drill/sstore");
 
     DrillConfig cfg = DrillConfig.create(props);
 
@@ -325,7 +320,5 @@ public class AvroDataFileAppenderTest {
     List<QueryDataBatch> qdb = client.executePreparedStatement(pps.get().getPreparedStatement().getServerHandle());
     LOG.debug("get result: {}", qdb);
   }
-
-
 
 }

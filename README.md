@@ -6,7 +6,7 @@ A collection of logback components to implement:
 
  * Json encoder to use with stock logback appenders.
 
- * /logs JAX-RS actuator endpoint, that allows you fast access to your logs, across your entire cluster.
+ * Available /logs JAX-RS actuator endpoint, that allows you fast access to your logs, across your entire cluster. (in spf4j-jaxrs-actuator)
 
 To use it all you need to do it to add :
 

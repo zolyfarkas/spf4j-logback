@@ -17,6 +17,7 @@ package org.spf4j.log;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -51,9 +52,12 @@ import org.spf4j.jmx.Registry;
  *
  * @author Zoltan Farkas
  */
+@SuppressFBWarnings("PATH_TRAVERSAL_IN") // Paths should be comming from trusted sources.
 public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
   private static final ZoneId ZULU = ZoneId.of("Z");
+
+  private final Object sync = new Object();
 
   private String fileNameBase;
 
@@ -121,6 +125,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return destinationPath;
   }
 
+  /**
+   * @return all log files in chronological order.
+   * @throws IOException
+   */
+  @JmxExport
   public List<Path> getLogFiles() throws IOException {
     List<Path> files = Files.walk(destinationPath)
             .filter((path) -> {
@@ -152,26 +161,32 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   @JmxExport
   public Path getCurrentFile() {
-    return currentFile;
+     synchronized (sync) {
+      return currentFile;
+    }
   }
 
   @JmxExport
-  public synchronized long flush() throws IOException {
-    long sync = writer.sync();
-    writer.fSync();
-    return sync;
+  public long flush() throws IOException {
+    synchronized (sync) {
+      long sync = writer.sync();
+      writer.fSync();
+      return sync;
+    }
   }
+
+
 
   @JmxExport
   public long getNrLogs() throws IOException {
-    return getNrLogs(currentFile);
+    return getNrLogs(getCurrentFile());
   }
 
   public FileReader<LogRecord> getCurrentLogs() throws IOException {
     if (isStarted()) {
       flush();
     }
-    return DataFileReader.openReader(currentFile.toFile(), new SpecificDatumReader<>(LogRecord.class));
+    return DataFileReader.openReader(getCurrentFile().toFile(), new SpecificDatumReader<>(LogRecord.class));
   }
 
   public List<LogRecord> getLogs(
@@ -202,7 +217,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
     int i = logFiles.size() - 1;
     long tailOffset = ptailOffset;
-    while (result.size() < limit && i >= 0) {
+    while (i >= 0 && result.size() < limit) {
       Path p = logFiles.get(i);
       long nrRecs = getNrLogs(p);
       nrRecs -= tailOffset;
@@ -249,7 +264,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     try {
       return getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit);
     } finally {
-      tmp.delete();
+      if (!tmp.delete()) {
+        throw new IOException("Unable to delete " + tmp);
+      }
     }
   }
 
@@ -263,8 +280,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         writer.setCodec(codecFact);
       }
       writer.create(LogRecord.getClassSchema(),tmp);
-      for (int i = 0, l = logFiles.size(); i < l; i++) {
-        Path p = logFiles.get(i);
+      for (Path p : logFiles) {
         FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
         int loc = 0;
         while (reader.hasNext()) {
@@ -277,7 +293,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       writer.close();
     } catch (IOException | RuntimeException ex)  {
-      tmp.delete();
+      if (!tmp.delete()) {
+        IOException ioEx = new IOException("Cannot delete " + tmp);
+        ioEx.addSuppressed(ex);
+        throw ioEx;
+      }
       throw ex;
     }
     return tmp;
@@ -341,7 +361,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       if (codecFact != null) {
         writer.setCodec(codecFact);
       }
-      String fileName = fileNameBase + '_' + target.toString() + ".avro";
+      String fileName = fileNameBase + '_' + target + ".avro";
       currentFile = destinationPath.resolve(fileName);
       currentFileLock = FileBasedLock.getLock(new File(destinationPath.toFile(), fileName + ".lock"));
       boolean locked = currentFileLock.tryLock(1, TimeUnit.MINUTES);
@@ -357,22 +377,36 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
   }
 
-  public static  boolean isValidFile(final Path file) throws IOException {
+  public static boolean isValidFile(final Path file) throws IOException {
     boolean valid  = true;
     try {
       getNrLogs(file);
     } catch (AvroRuntimeException ex) {
-      org.spf4j.base.Runtime.error("Invalid long file " + file, ex);
-      Files.move(file, file.getParent().resolve(file.getFileName().toString() + ".bad"));
+      org.spf4j.base.Runtime.error("Invalid log file " + file, ex);
+      rename(file);
       valid =  false;
     }
     return valid;
   }
 
+  private static void rename(final Path file) throws IOException {
+    Path parent = file.getParent();
+    Path fileName = file.getFileName();
+    if (fileName == null) {
+      throw new IllegalArgumentException("invalid file path " + file);
+    }
+    String fileNameStr = fileName.toString();
+    if (parent == null) {
+      Files.move(file, Paths.get(fileNameStr + ".bad"));
+    } else {
+      Files.move(file, parent.resolve(fileNameStr + ".bad"));
+    }
+  }
+
   @Override
   protected void append(final ILoggingEvent eventObject) {
     LogRecord record = Converters.convert(eventObject);
-    synchronized (this) {
+    synchronized (sync) {
       try {
         ensurePartition(record.getTs());
       } catch (IOException | InterruptedException | RuntimeException ex) {

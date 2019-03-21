@@ -16,11 +16,15 @@
 package org.spf4j.log;
 
 import com.google.common.collect.ImmutableMap;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
+import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spf4j.base.avro.LogLevel;
 import org.spf4j.base.avro.LogRecord;
 
@@ -28,10 +32,13 @@ import org.spf4j.base.avro.LogRecord;
  *
  * @author Zoltan Farkas
  */
+@SuppressFBWarnings("PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS")
 public class ConvertersTest {
 
+  private static final Logger LOG = LoggerFactory.getLogger(AvroDataFileAppenderTest.class);
+
   @Test
-  public void testSomeMethod() throws IOException {
+  public void testSer() throws IOException {
     StringBuilder msgBuilder = new StringBuilder("someMessage");
     for (int i = 0; i < 20; i++) {
       msgBuilder.append('a');
@@ -45,20 +52,21 @@ public class ConvertersTest {
             Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", ""),
             org.spf4j.base.avro.Converters.convert(new RuntimeException(new IOException("bla"))));
-        System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
-            System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
-
+    String sr2 = new String(avroLogbackEncoder.serializeAvro(rec2));
+    LOG.debug(sr2);
+    Assert.assertThat(sr2, Matchers.containsString("\"throwable\""));
+    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec)));
   }
 
   @Test
+  @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION") // on purpose
   public void testSerErrorr() throws IOException {
-
     LogRecord rec = new LogRecord("", "bla", null, Instant.now(), "test", "text", "abc",
             Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
     try {
-      System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
+      LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec)));
       Assert.fail();
     } catch (RuntimeException ex) {
       // expected
@@ -67,7 +75,7 @@ public class ConvertersTest {
             Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null);
     avroLogbackEncoder.initEncoder();
-    System.out.println(new String(avroLogbackEncoder.serializeAvro(rec2)));
+    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec2)));
   }
 
 }

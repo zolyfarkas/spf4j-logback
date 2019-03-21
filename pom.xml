@@ -59,6 +59,21 @@
           </properties>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <configuration>
+            <excludeFilterFile>findbugs_exclude.xml</excludeFilterFile>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <configuration>
+           <configLocation>checkstyle_checks.xml</configLocation>
+        </configuration>
+      </plugin>
   </plugins>
 </build>
 

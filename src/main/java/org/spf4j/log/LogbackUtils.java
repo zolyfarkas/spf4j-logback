@@ -20,6 +20,7 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.spi.AppenderAttachable;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -52,6 +53,7 @@ public final class LogbackUtils {
     }
   }
 
+  @SuppressFBWarnings("ITC_INHERITANCE_TYPE_CHECKING")
   public static void configuredFileAppenders(final AppenderAttachable aa, final Consumer<AvroDataFileAppender> consumer) {
     for (Iterator<Appender<ILoggingEvent>> it = aa.iteratorForAppenders(); it.hasNext();) {
       Appender<ILoggingEvent> appender = it.next();

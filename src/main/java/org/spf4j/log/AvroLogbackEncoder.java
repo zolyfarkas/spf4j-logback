@@ -25,6 +25,7 @@ import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import org.apache.avro.AvroNamesRefResolver;
 import org.apache.avro.Schema;
@@ -40,9 +41,10 @@ import org.spf4j.base.avro.LogRecord;
 import org.spf4j.io.ByteArrayBuilder;
 
 /**
+ * An encoder that will encode a log event as json.
  * @author Zoltan Farkas
  */
-public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements LifeCycle {
+public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements LifeCycle {
 
     private static final MinimalPrettyPrinter JSON_FMT = new MinimalPrettyPrinter(Strings.EOL) {
       @Override
@@ -66,12 +68,18 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
 
   private Encoder encoder;
 
+  private Charset charset;
+
   public AvroLogbackEncoder() {
+    charset = Charset.defaultCharset();
     bab = new ByteArrayBuilder(128);
     writer = new ExtendedSpecificDatumWriter(LogRecord.class);
     initEncoder();
   }
 
+  public void setCharset(final String charsetName) {
+    this.charset = Charset.forName(charsetName);
+  }
 
   public void initEncoder() {
       try {
@@ -84,7 +92,7 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
   private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
     JsonGenerator agen;
     try {
-      agen = Schema.FACTORY.createGenerator(bab, JsonEncoding.UTF8);
+      agen = Schema.FACTORY.createGenerator(new OutputStreamWriter(bab, charset));
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
@@ -96,8 +104,8 @@ public class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements Li
   public byte[] headerBytes() {
     try {
       ByteArrayBuilder bb = new ByteArrayBuilder();
-      OutputStreamWriter osw = new OutputStreamWriter(bb, StandardCharsets.UTF_8);
-      JsonGenerator jgen = Json.FACTORY.createJsonGenerator(osw);
+      OutputStreamWriter osw = new OutputStreamWriter(bb, charset);
+      JsonGenerator jgen = Json.FACTORY.createGenerator(osw);
       LogRecord.getClassSchema().toJson(new AvroNamesRefResolver(SchemaResolvers.getDefault()), jgen);
       jgen.flush();
       osw.append('\n');
