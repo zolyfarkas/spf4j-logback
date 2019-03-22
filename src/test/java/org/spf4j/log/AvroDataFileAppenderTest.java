@@ -15,6 +15,7 @@
  */
 package org.spf4j.log;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -63,13 +64,14 @@ import org.spf4j.zel.vm.Program;
 /**
  * @author Zoltan Farkas
  */
+@SuppressFBWarnings({ "MDM_THREAD_YIELD", "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE" })
 public class AvroDataFileAppenderTest {
 
   private static final Logger LOG = LoggerFactory.getLogger(AvroDataFileAppenderTest.class);
 
   @Test
   public void testAvroDataFileAppender() throws IOException {
-    deleteTestFiles();
+    deleteTestFiles("testAvroLog");
     AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
@@ -90,13 +92,13 @@ public class AvroDataFileAppenderTest {
   private static class BrokenBean {
 
     public String getCrap() {
-      throw new RuntimeException("yes!");
+      throw new RuntimeException("yes! " + this);
     }
   }
 
   @Test
   public void testAvroDataFileAppender3() throws IOException {
-    deleteTestFiles();
+    deleteTestFiles("testAvroLog");
     AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
@@ -116,20 +118,22 @@ public class AvroDataFileAppenderTest {
   }
 
   @Test
-  public void testAvroDataFileAppender2() throws IOException, CompileException, ExecutionException, InterruptedException {
-    deleteTestFiles();
+  public void testAvroDataFileAppender2()
+          throws IOException, CompileException, ExecutionException, InterruptedException {
+    deleteTestFiles("testAvroLog");
     AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     appender.start();
     appender.append(new TestLogEvent());
-    appender.append(new TestLogEvent(Instant.now().minus(1, ChronoUnit.DAYS)));
-    appender.append(new TestLogEvent(Instant.now().minus(2, ChronoUnit.DAYS)));
-    appender.append(new TestLogEvent(Instant.now().minus(3, ChronoUnit.DAYS)));
+    Instant now = Instant.now();
+    appender.append(new TestLogEvent(now.minus(1, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent(now.minus(2, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent(now.minus(3, ChronoUnit.DAYS)));
     appender.append(new TestLogEvent());
     appender.stop();
-    LOG.debug("All Log files: " + appender.getLogFiles());
+    LOG.debug("All Log files: {}", appender.getLogFiles());
     int i = 0;
     Iterable<LogRecord> logs = appender.getLogs("local", 0, 100);
     for (LogRecord rec : logs) {
@@ -159,10 +163,10 @@ public class AvroDataFileAppenderTest {
     Assert.assertTrue(filteredLogs.get(0).getOrigin().endsWith("1"));
   }
 
-  public void deleteTestFiles() throws IOException {
+  private void deleteTestFiles(final String fileNameBase) throws IOException {
     Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))
             .filter((p)
-                    -> p.getFileName().toString().startsWith("testAvroLog")
+                    -> p.getFileName().toString().startsWith(fileNameBase)
             )
             .forEach((p) -> {
               try {
@@ -177,7 +181,7 @@ public class AvroDataFileAppenderTest {
   @Ignore
   public void testLoadLogFile() throws IOException, InterruptedException {
     final AvroDataFileAppender appender = new AvroDataFileAppender();
-    appender.setDestinationPath(new File("./src/test/resources").getCanonicalPath().toString());
+    appender.setDestinationPath(new File("./src/test/resources").getCanonicalPath());
     appender.setFileNameBase("jaxrs-spf4j-demo");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     List<LogRecord> logs = appender.getLogs("test", 0, 10);
@@ -189,12 +193,12 @@ public class AvroDataFileAppenderTest {
     LOG.debug("written {} bytes", bos.size());
 //    LOG.debug("logs", logs.get(0));
 //    LOG.debug("logs", logs.toArray());
-    Assert.assertTrue(logs.size() == 10);
+    Assert.assertEquals(10, logs.size());
   }
 
   @Test
   public void testAvroDataFileAppenderAsync() throws IOException, InterruptedException {
-    deleteTestFiles();
+    deleteTestFiles("testAvroLog");
     final AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
@@ -219,8 +223,8 @@ public class AvroDataFileAppenderTest {
   /**
    * see
    */
-  public static void configureFormatPlugins(StoragePluginRegistry pluginRegistry,
-          String storagePlugin, String avroPath)
+  public static void configureFormatPlugins(final StoragePluginRegistry pluginRegistry,
+          final String storagePlugin, final String avroPath)
           throws ExecutionSetupException {
     FileSystemPlugin fileSystemPlugin = (FileSystemPlugin) pluginRegistry.getPlugin(storagePlugin);
     FileSystemConfig fileSystemConfig = (FileSystemConfig) fileSystemPlugin.getConfig();
@@ -244,7 +248,7 @@ public class AvroDataFileAppenderTest {
             workspaces,
             newFormats);
 
-    newFileSystemConfig.setEnabled(true);
+    newFileSystemConfig.setEnabled(Boolean.TRUE);
     pluginRegistry.createOrUpdate(storagePlugin, newFileSystemConfig, true);
   }
 
@@ -263,7 +267,7 @@ public class AvroDataFileAppenderTest {
       Thread.sleep(1);
     }
     appender.stop();
-    String TMP_FOLDER = org.spf4j.base.Runtime.TMP_FOLDER;
+    String tmpFolder = org.spf4j.base.Runtime.TMP_FOLDER;
     Properties props = new Properties();
     // Properties here mimic those in drill-root/pom.xml, Surefire plugin
     // configuration. They allow tests to run successfully in IDE.
@@ -299,9 +303,9 @@ public class AvroDataFileAppenderTest {
     // storage. Profiles will go here when running in distributed
     // mode.
     props.setProperty(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT,
-            TMP_FOLDER + "/drill/sstore/zk");
-    props.setProperty(ExecConstants.DRILL_TMP_DIR, TMP_FOLDER + "/drill");
-    props.setProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH, TMP_FOLDER + "/drill/sstore");
+            tmpFolder + "/drill/sstore/zk");
+    props.setProperty(ExecConstants.DRILL_TMP_DIR, tmpFolder + "/drill");
+    props.setProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH, tmpFolder + "/drill/sstore");
 
     DrillConfig cfg = DrillConfig.create(props);
 
@@ -313,7 +317,7 @@ public class AvroDataFileAppenderTest {
 
     DrillClient client = new DrillClient(true);
     Properties clProps = new Properties();
-    clProps.put(DrillProperties.DRILLBIT_CONNECTION, String.format("localhost:%s", bit.getUserPort()));
+    clProps.setProperty(DrillProperties.DRILLBIT_CONNECTION, String.format("localhost:%s", bit.getUserPort()));
     client.connect(clProps);
     DrillRpcFuture<UserProtos.CreatePreparedStatementResp> pps
             = client.createPreparedStatement("select * from dfs.avro.`/`");

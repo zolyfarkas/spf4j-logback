@@ -35,7 +35,7 @@ import org.spf4j.base.avro.LogRecord;
 @SuppressFBWarnings("PRMC_POSSIBLY_REDUNDANT_METHOD_CALLS")
 public class ConvertersTest {
 
-  private static final Logger LOG = LoggerFactory.getLogger(AvroDataFileAppenderTest.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ConvertersTest.class);
 
   @Test
   public void testSer() throws IOException {
@@ -47,15 +47,15 @@ public class ConvertersTest {
             Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
-    System.out.println(new String(avroLogbackEncoder.serializeAvro(rec)));
+    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec), avroLogbackEncoder.getCharset()));
     LogRecord rec2 = new LogRecord("", "", LogLevel.DEBUG, Instant.now(), "test", "text", "someMessage",
             Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", ""),
             org.spf4j.base.avro.Converters.convert(new RuntimeException(new IOException("bla"))));
-    String sr2 = new String(avroLogbackEncoder.serializeAvro(rec2));
+    String sr2 = new String(avroLogbackEncoder.serializeAvro(rec2), avroLogbackEncoder.getCharset());
     LOG.debug(sr2);
     Assert.assertThat(sr2, Matchers.containsString("\"throwable\""));
-    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec)));
+    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec), avroLogbackEncoder.getCharset()));
   }
 
   @Test
@@ -66,7 +66,7 @@ public class ConvertersTest {
             ImmutableMap.of("a", "b", "c", "d"), null);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
     try {
-      LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec)));
+      LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec), avroLogbackEncoder.getCharset()));
       Assert.fail();
     } catch (RuntimeException ex) {
       // expected
@@ -75,7 +75,7 @@ public class ConvertersTest {
             Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null);
     avroLogbackEncoder.initEncoder();
-    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec2)));
+    LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec2), avroLogbackEncoder.getCharset()));
   }
 
 }

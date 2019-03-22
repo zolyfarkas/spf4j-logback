@@ -100,11 +100,18 @@ public final class Converters {
 
   public static Throwable convert(final IThrowableProxy throwable) {
     String message = throwable.getMessage();
-    if (throwable instanceof ThrowableProxy && throwable.getClassName().equals(RemoteException.class.getName())) {
-        return new Throwable(throwable.getClassName(),
-                message == null ? "" : message, convert(throwable.getStackTraceElementProxyArray()),
-                ((RemoteException) ((ThrowableProxy) throwable).getThrowable()).getRemoteCause(),
-                convert(throwable.getSuppressed()));
+    RemoteException rex = null;
+    if (throwable instanceof ThrowableProxy) {
+      java.lang.Throwable jThr = ((ThrowableProxy) throwable).getThrowable();
+      if (jThr instanceof RemoteException) {
+        rex = (RemoteException) jThr;
+      }
+    }
+    if (rex != null) {
+      return new Throwable(throwable.getClassName(),
+              message == null ? "" : message, convert(throwable.getStackTraceElementProxyArray()),
+              rex.getRemoteCause(),
+              convert(throwable.getSuppressed()));
     }
     IThrowableProxy cause = throwable.getCause();
     return new Throwable(throwable.getClassName(),
@@ -135,7 +142,6 @@ public final class Converters {
     }
   }
 
-
   public static Level convert2(final ch.qos.logback.classic.Level level) {
     if (level.levelInt >= ch.qos.logback.classic.Level.ERROR_INT) {
       return Level.ERROR;
@@ -149,8 +155,6 @@ public final class Converters {
       return Level.TRACE;
     }
   }
-
-
 
   @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
   public static LogRecord convert(final ILoggingEvent event) {
@@ -214,12 +218,10 @@ public final class Converters {
             extraThrowable == null ? null : convert(extraThrowable));
   }
 
-
-
   @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
   public static Slf4jLogRecord convert2(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
-    Object [] arguments;
+    Object[] arguments;
     if (extraThrowable == null) {
       arguments = event.getArgumentArray();
     } else {
@@ -228,8 +230,5 @@ public final class Converters {
     return new Slf4jLogRecordImpl(false, event.getLoggerName(), convert2(event.getLevel()),
             event.getMarker(), event.getTimeStamp(), event.getMessage(), arguments);
   }
-
-
-
 
 }

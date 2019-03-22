@@ -17,16 +17,13 @@ package org.spf4j.log;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.encoder.EncoderBase;
-import ch.qos.logback.core.spi.LifeCycle;
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import org.apache.avro.AvroNamesRefResolver;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaResolvers;
@@ -42,13 +39,16 @@ import org.spf4j.io.ByteArrayBuilder;
 
 /**
  * An encoder that will encode a log event as json.
+ * The schema of the log record is:
+ * See schema [at](https://zolyfarkas.github.io/core-schema/avrodoc.html
+ * #/schema/org%2Fspf4j%2Fbase%2Favro%2FLogRecord.avsc/org.spf4j.base.avro.LogRecord)
  * @author Zoltan Farkas
  */
-public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> implements LifeCycle {
+public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> {
 
     private static final MinimalPrettyPrinter JSON_FMT = new MinimalPrettyPrinter(Strings.EOL) {
       @Override
-      public void writeArrayValueSeparator(final JsonGenerator jg) throws IOException, JsonGenerationException {
+      public void writeArrayValueSeparator(final JsonGenerator jg) throws IOException {
         jg.writeRaw(',');
         jg.writeRaw(Strings.EOL);
         jg.writeRaw('\t');
@@ -56,7 +56,7 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> impleme
 
 
       @Override
-      public void beforeArrayValues(final JsonGenerator jg) throws IOException, JsonGenerationException {
+      public void beforeArrayValues(final JsonGenerator jg) throws IOException {
         jg.writeRaw(Strings.EOL);
         jg.writeRaw('\t');
       }
@@ -81,6 +81,10 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> impleme
     this.charset = Charset.forName(charsetName);
   }
 
+  public Charset getCharset() {
+    return charset;
+  }
+
   public void initEncoder() {
       try {
         encoder = new ExtendedJsonEncoder(LogRecord.getClassSchema(), createJsonGen(bab));
@@ -89,10 +93,10 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> impleme
       }
   }
 
-  private  JsonGenerator createJsonGen(final ByteArrayBuilder bab) {
+  private  JsonGenerator createJsonGen(final OutputStream os) {
     JsonGenerator agen;
     try {
-      agen = Schema.FACTORY.createGenerator(new OutputStreamWriter(bab, charset));
+      agen = Schema.FACTORY.createGenerator(new OutputStreamWriter(os, charset));
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
@@ -122,7 +126,7 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> impleme
     LogRecord record;
     try {
        record = Converters.convert(event);
-    } catch (RuntimeException ex){
+    } catch (RuntimeException ex) {
       org.spf4j.base.Runtime.error("Failed to convert " + event, ex);
       this.addError("Failed to convert " + event, ex);
       return Arrays.EMPTY_BYTE_ARRAY;
@@ -131,16 +135,16 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> impleme
       try {
         return serializeAvro(record);
       } catch (IOException | RuntimeException ex) {
-        org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
-        this.addError("Failed to serialize " + record, ex);
         try {
+          org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
+          this.addError("Failed to serialize " + record, ex);
+          this.addError("Failed at:" + new String(bab.toByteArray(), charset) + '\n');
           encoder.flush();
         } catch (IOException ex1) {
          throw new UncheckedIOException(ex1);
         } finally {
           initEncoder();
         }
-        this.addError("Failed at:" + new String(bab.toByteArray()) + '\n');
         return Arrays.EMPTY_BYTE_ARRAY;
       }
     }
@@ -156,6 +160,11 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> impleme
   @Override
   public byte[] footerBytes() {
     return Arrays.EMPTY_BYTE_ARRAY;
+  }
+
+  @Override
+  public String toString() {
+    return "AvroLogbackEncoder{" + "charset=" + charset + '}';
   }
 
 }

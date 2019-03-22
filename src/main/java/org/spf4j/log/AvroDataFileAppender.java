@@ -20,6 +20,7 @@ import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,6 +30,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -48,7 +50,8 @@ import org.spf4j.jmx.Registry;
 
 /**
  * an Appender that will log into binary avro data files.
- * Date will be partition by date
+ * Files will be be partition by day.
+ * Day boundaries are determined by the provided zone id.
  *
  * @author Zoltan Farkas
  */
@@ -116,8 +119,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     this.destinationPath = Paths.get(destinationPath);
   }
 
-  public void setPartitionZoneID(final String zoneId) {
-    this.zoneId = ZoneId.of(zoneId);
+  public void setPartitionZoneID(final String zoneIdStr) {
+    this.zoneId = ZoneId.of(zoneIdStr);
   }
 
   @JmxExport
@@ -141,9 +144,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
               return name.startsWith(fileNameBase) && name.endsWith(".avro");
              })
             .collect(Collectors.toList());
-    Collections.sort(files, (p1 , p2) -> {
-      return p1.getFileName().toString().compareTo(p2.getFileName().toString());
-    });
+    Collections.sort(files, FileChronoComparator.INSTANCE);
     return files;
   }
 
@@ -169,9 +170,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   @JmxExport
   public long flush() throws IOException {
     synchronized (sync) {
-      long sync = writer.sync();
+      long location = writer.sync();
       writer.fSync();
-      return sync;
+      return location;
     }
   }
 
@@ -265,7 +266,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       return getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit);
     } finally {
       if (!tmp.delete()) {
-        throw new IOException("Unable to delete " + tmp);
+        addError("Unable to delete temp file " + tmp);
       }
     }
   }
@@ -275,23 +276,24 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
           throws IOException {
     File tmp = File.createTempFile("scan", "tmp.avro", this.destinationPath.toFile());
     try {
-      DataFileWriter<LogRecord> writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
+      DataFileWriter<LogRecord> wr = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
       if (codecFact != null) {
-        writer.setCodec(codecFact);
+        wr.setCodec(codecFact);
       }
-      writer.create(LogRecord.getClassSchema(),tmp);
+      wr.create(LogRecord.getClassSchema(), tmp);
       for (Path p : logFiles) {
-        FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
+        FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(),
+                new SpecificDatumReader<>(LogRecord.class));
         int loc = 0;
         while (reader.hasNext()) {
           LogRecord log = reader.next();
           log.setOrigin(originPrefix + ':' + p + ':' + (loc++));
           if (pred.test(log)) {
-            writer.append(log);
+            wr.append(log);
           }
         }
       }
-      writer.close();
+      wr.close();
     } catch (IOException | RuntimeException ex)  {
       if (!tmp.delete()) {
         IOException ioEx = new IOException("Cannot delete " + tmp);
@@ -305,7 +307,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   public static void skip(final FileReader<LogRecord> it,  final long count) throws IOException {
     LogRecord tmp = new LogRecord();
-    for (long i = 0; i< count; i++) {
+    for (long i = 0; i < count; i++) {
       it.next(tmp);
     }
   }
@@ -428,6 +430,18 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return "AvroDataFileAppender{" + "fileNameBase=" + fileNameBase
             + ", writer=" + writer + ", fileDate=" + fileDate + ", currentFile="
             + currentFile + ", destinationPath=" + destinationPath + ", zoneId=" + zoneId + '}';
+  }
+
+  private static class FileChronoComparator implements Comparator<Path>, Serializable {
+
+    private static final long serialVersionUID = 1L;
+    static final Comparator<Path> INSTANCE = new FileChronoComparator();
+
+    @Override
+    @SuppressFBWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
+    public int compare(final Path p1, final Path p2) {
+      return p1.getFileName().toString().compareTo(p2.getFileName().toString());
+    }
   }
 
 

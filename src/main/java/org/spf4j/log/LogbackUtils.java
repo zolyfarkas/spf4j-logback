@@ -54,7 +54,8 @@ public final class LogbackUtils {
   }
 
   @SuppressFBWarnings("ITC_INHERITANCE_TYPE_CHECKING")
-  public static void configuredFileAppenders(final AppenderAttachable aa, final Consumer<AvroDataFileAppender> consumer) {
+  public static void configuredFileAppenders(final AppenderAttachable aa,
+          final Consumer<AvroDataFileAppender> consumer) {
     for (Iterator<Appender<ILoggingEvent>> it = aa.iteratorForAppenders(); it.hasNext();) {
       Appender<ILoggingEvent> appender = it.next();
       if (appender instanceof AvroDataFileAppender) {

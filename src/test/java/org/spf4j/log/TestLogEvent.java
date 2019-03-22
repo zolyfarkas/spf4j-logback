@@ -36,15 +36,15 @@ final class TestLogEvent implements ILoggingEvent {
 
   private final Object[] args;
 
-  public TestLogEvent() {
+  TestLogEvent() {
     this(Instant.now());
   }
 
-  public TestLogEvent(final Instant instant) {
+  TestLogEvent(final Instant instant) {
     this(instant, "message " + CNT.getAndIncrement(), Arrays.EMPTY_OBJ_ARRAY);
   }
 
-  public TestLogEvent(final Instant instant, final String message, final Object... args) {
+  TestLogEvent(final Instant instant, final String message, final Object... args) {
     this.instant = instant;
     this.message = message;
     this.args = args;
@@ -93,8 +93,8 @@ final class TestLogEvent implements ILoggingEvent {
 
   @Override
   public StackTraceElement[] getCallerData() {
-    throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-  }
+    throw new UnsupportedOperationException();
+   }
 
   @Override
   public boolean hasCallerData() {
@@ -129,7 +129,8 @@ final class TestLogEvent implements ILoggingEvent {
 
   @Override
   public String toString() {
-    return "TestLogEvent{" + "instant=" + instant + ", message=" + message + ", args=" + java.util.Arrays.toString(args) + '}';
+    return "TestLogEvent{" + "instant=" + instant + ", message=" + message
+            + ", args=" + java.util.Arrays.toString(args) + '}';
   }
 
 }
