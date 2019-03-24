@@ -170,9 +170,13 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   @JmxExport
   public long flush() throws IOException {
     synchronized (sync) {
-      long location = writer.sync();
-      writer.fSync();
-      return location;
+      if (this.isStarted()) {
+        long location = writer.sync();
+        writer.fSync();
+        return location;
+      } else {
+        return -1;
+      }
     }
   }
 
@@ -328,24 +332,30 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   @Override
   public void stop() {
     try {
-      writer.close();
-      super.stop();
+      synchronized (sync) {
+        if (isStarted()) {
+          writer.close();
+          Registry.unregister("avro.log.appender", this.getName());
+          super.stop();
+        }
+      }
     } catch (IOException | RuntimeException ex) {
       addError("Unable to close writer " + writer, ex);
     }
-    Registry.unregister("avro.log.appender", this.getName());
   }
 
   @Override
   public void start() {
     Instant now = Instant.now();
     try {
-      ensurePartition(now);
-      super.start();
+      synchronized (sync) {
+        ensurePartition(now);
+        Registry.export("avro.log.appender", this.getName(), this);
+        super.start();
+      }
     } catch (IOException | InterruptedException | RuntimeException ex) {
        addError("Unable to ensure file partition " + now, ex);
     }
-    Registry.export("avro.log.appender", this.getName(), this);
   }
 
   private void ensurePartition(final Instant instant) throws IOException, InterruptedException {
@@ -408,9 +418,10 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   @Override
   protected void append(final ILoggingEvent eventObject) {
     LogRecord record = Converters.convert(eventObject);
+    Instant ts = record.getTs();
     synchronized (sync) {
       try {
-        ensurePartition(record.getTs());
+        ensurePartition(ts);
       } catch (IOException | InterruptedException | RuntimeException ex) {
         org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
         this.addError("Unable to setup log file", ex);
