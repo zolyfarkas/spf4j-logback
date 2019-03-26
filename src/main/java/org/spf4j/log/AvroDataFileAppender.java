@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.avro.AvroRuntimeException;
@@ -44,7 +43,6 @@ import org.apache.avro.file.FileReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.spf4j.base.avro.LogRecord;
-import org.spf4j.concurrent.FileBasedLock;
 import org.spf4j.jmx.JmxExport;
 import org.spf4j.jmx.Registry;
 
@@ -69,8 +67,6 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   private LocalDate fileDate;
 
   private Path currentFile;
-
-  private FileBasedLock currentFileLock;
 
   private Path destinationPath;
 
@@ -331,16 +327,18 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   @Override
   public void stop() {
-    try {
-      synchronized (sync) {
-        if (isStarted()) {
+    synchronized (sync) {
+      if (isStarted()) {
+        try {
           writer.close();
-          Registry.unregister("avro.log.appender", this.getName());
-          super.stop();
+        } catch (IOException | RuntimeException ex) {
+          addError("Unable to close writer " + writer, ex);
+        } finally {
+          writer = null;
         }
+        Registry.unregister("avro.log.appender", this.getName());
+        super.stop();
       }
-    } catch (IOException | RuntimeException ex) {
-      addError("Unable to close writer " + writer, ex);
     }
   }
 
@@ -365,8 +363,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       return;
     } else {
       if (writer != null) {
-        writer.close();
-        currentFileLock.unlock();
+        try {
+         writer.close();
+        } finally {
+          writer = null;
+        }
       }
       fileDate = target;
       writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
@@ -375,16 +376,10 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       String fileName = fileNameBase + '_' + target + ".avro";
       currentFile = destinationPath.resolve(fileName);
-      currentFileLock = FileBasedLock.getLock(new File(destinationPath.toFile(), fileName + ".lock"));
-      boolean locked = currentFileLock.tryLock(1, TimeUnit.MINUTES);
-      if (locked) {
-        if (Files.isWritable(currentFile) && isValidFile(currentFile)) {
-          writer = writer.appendTo(currentFile.toFile());
-        } else {
-          writer.create(LogRecord.getClassSchema(), currentFile.toFile());
-        }
+      if (Files.isWritable(currentFile) && isValidFile(currentFile)) {
+        writer = writer.appendTo(currentFile.toFile());
       } else {
-        throw new IOException("cannot acquire lock " + currentFileLock);
+        writer.create(LogRecord.getClassSchema(), currentFile.toFile());
       }
     }
   }
