@@ -31,8 +31,10 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.CodecFactory;
@@ -42,7 +44,9 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.FileReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.spf4j.base.AbstractRunnable;
 import org.spf4j.base.avro.LogRecord;
+import org.spf4j.concurrent.DefaultExecutor;
 import org.spf4j.jmx.JmxExport;
 import org.spf4j.jmx.Registry;
 
@@ -74,17 +78,29 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   private CodecFactory codecFact;
 
+  private int maxNrFiles;
+
+  private long maxLogsBytes;
+
   public AvroDataFileAppender() {
     zoneId = ZULU;
     fileNameBase = org.spf4j.base.Runtime.PROCESS_NAME;
     setName("avroLogAppender");
-
     try {
       Class.forName("org.xerial.snappy.Snappy");
       codecFact = CodecFactory.snappyCodec();
     } catch (ClassNotFoundException ex) {
      codecFact = null;
     }
+    this.maxNrFiles = 15;
+    this.maxLogsBytes = 1024 * 1024 * 100;
+  }
+
+  public void setMaxNrFiles(final int maxNrFiles) {
+    if (maxNrFiles < 2) {
+      throw new IllegalArgumentException("At least 2 files must be configured:" + maxNrFiles);
+    }
+    this.maxNrFiles = maxNrFiles;
   }
 
   public void setCodec(final String codec) {
@@ -123,6 +139,42 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   public Path getDestinationPath() {
     return destinationPath;
   }
+
+  @JmxExport
+  public void cleanup() throws IOException {
+    synchronized (AvroDataFileAppender.class) {
+      List<Path> logFiles = getLogFiles();
+      if (logFiles.size() > maxNrFiles) {
+        int toDelete =  logFiles.size() - maxNrFiles;
+        int i = 0;
+        Iterator<Path> iterator = logFiles.iterator();
+        while (iterator.hasNext()) {
+          Path path = iterator.next();
+          if (i >= toDelete) {
+            break;
+          }
+          Logger.getLogger(AvroDataFileAppender.class.getName())
+                  .log(java.util.logging.Level.INFO, "Deleting {}", path);
+          Files.delete(path);
+          iterator.remove();
+          i++;
+        }
+      }
+      long size = 0;
+      for (Path path : logFiles) {
+        size += path.toFile().length();
+      }
+      Iterator<Path> iterator = logFiles.iterator();
+      while (size > maxLogsBytes && iterator.hasNext()) {
+        Path path = iterator.next();
+        if (iterator.hasNext()) { // do not delete last file...
+          size -= path.toFile().length();
+          Files.delete(path);
+        }
+      }
+    }
+  }
+
 
   /**
    * @return all log files in chronological order.
@@ -369,6 +421,12 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
           writer = null;
         }
       }
+      DefaultExecutor.INSTANCE.execute(new AbstractRunnable(true) {
+        @Override
+        public void doRun() throws IOException {
+          cleanup();
+        }
+      });
       fileDate = target;
       writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
       if (codecFact != null) {
