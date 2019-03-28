@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.config.DrillProperties;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -58,6 +60,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.DefaultExecutor;
+import org.spf4j.test.log.LogAssert;
+import org.spf4j.test.log.TestLoggers;
+import org.spf4j.test.matchers.LogMatchers;
 import org.spf4j.zel.vm.CompileException;
 import org.spf4j.zel.vm.Program;
 
@@ -162,6 +167,32 @@ public class AvroDataFileAppenderTest {
     Assert.assertEquals(1, filteredLogs.size());
     Assert.assertTrue(filteredLogs.get(0).getOrigin().endsWith("1"));
   }
+
+  @Test
+  public void testAvroDataFileAppenderCleanup()
+          throws IOException, CompileException, ExecutionException, InterruptedException {
+    deleteTestFiles("testAvroLog");
+    AvroDataFileAppender appender = new AvroDataFileAppender();
+    appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
+    appender.setFileNameBase("testAvroLog");
+    appender.setPartitionZoneID(ZoneId.systemDefault().getId());
+    appender.setMaxNrFiles(2);
+    appender.setMaxLogsBytes(102400);
+    appender.start();
+    Instant now = Instant.now();
+    LogAssert expect = TestLoggers.sys().expect(AvroDataFileAppender.class.getName(), Level.INFO, 2,
+            LogMatchers.hasMessageWithPattern("Deleting \\./target/testAvroLog.*"));
+    appender.append(new TestLogEvent(now.minus(1, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent(now.minus(2, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent(now.minus(3, ChronoUnit.DAYS)));
+    appender.append(new TestLogEvent());
+    appender.stop();
+    List<Path> logFiles = appender.getLogFiles();
+    LOG.debug("All Log files: {}", logFiles);
+    expect.assertObservation(10, TimeUnit.SECONDS);
+  }
+
+
 
   private void deleteTestFiles(final String fileNameBase) throws IOException {
     Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))

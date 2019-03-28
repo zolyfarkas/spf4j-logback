@@ -21,6 +21,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,7 +36,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
@@ -103,6 +103,14 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     this.maxNrFiles = maxNrFiles;
   }
 
+  public void setMaxLogsBytes(final long maxLogsBytes) {
+    if (maxLogsBytes < 10240) {
+      throw new IllegalArgumentException("max size too small " + maxLogsBytes);
+    }
+    this.maxLogsBytes = maxLogsBytes;
+  }
+
+
   public void setCodec(final String codec) {
     if (codec == null) {
       codecFact = null;
@@ -154,7 +162,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
             break;
           }
           Logger.getLogger(AvroDataFileAppender.class.getName())
-                  .log(java.util.logging.Level.INFO, "Deleting {}", path);
+                  .log(java.util.logging.Level.INFO, "Deleting {0}", path);
           Files.delete(path);
           iterator.remove();
           i++;
@@ -169,6 +177,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         Path path = iterator.next();
         if (iterator.hasNext()) { // do not delete last file...
           size -= path.toFile().length();
+          Logger.getLogger(AvroDataFileAppender.class.getName())
+                  .log(java.util.logging.Level.INFO, "Deleting {0}", path);
           Files.delete(path);
         }
       }
@@ -182,18 +192,21 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
    */
   @JmxExport
   public List<Path> getLogFiles() throws IOException {
-    List<Path> files = Files.walk(destinationPath)
-            .filter((path) -> {
-              Path fileName = path.getFileName();
-              if (fileName == null) {
-                return false;
-              }
-              String name = fileName.toString();
-              return name.startsWith(fileNameBase) && name.endsWith(".avro");
-             })
-            .collect(Collectors.toList());
-    Collections.sort(files, FileChronoComparator.INSTANCE);
-    return files;
+    List<Path> contents = new ArrayList<>();
+    try (DirectoryStream<Path> dStream = Files.newDirectoryStream(destinationPath, (path) -> {
+      Path fileName = path.getFileName();
+      if (fileName == null) {
+        return false;
+      }
+      String name = fileName.toString();
+      return name.startsWith(fileNameBase) && name.endsWith(".avro");
+    })) {
+      for (Path p : dStream) {
+        contents.add(p);
+      }
+    }
+    Collections.sort(contents, FileChronoComparator.INSTANCE);
+    return contents;
   }
 
   public List<Path> getOldLogFiles() throws IOException {
