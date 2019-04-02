@@ -156,7 +156,9 @@ public final class Converters {
     }
   }
 
-  @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
+  @SuppressFBWarnings({ "WOC_WRITE_ONLY_COLLECTION_LOCAL", "ITC_INHERITANCE_TYPE_CHECKING" })
+  // WOC_WRITE_ONLY_COLLECTION_LOCAL a false positive.
+  // ITC_INHERITANCE_TYPE_CHECKING not other goos way that  I know of...
   public static LogRecord convert(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
     Marker marker = event.getMarker();
@@ -178,6 +180,7 @@ public final class Converters {
     if (index >= arguments.length) {
       xArgs = Collections.EMPTY_LIST;
     } else {
+      int nrXArgs = 0;
       int nrAttribs = 0;
       for (int i = index; i < arguments.length; i++) {
         Object obj = arguments[i];
@@ -188,12 +191,22 @@ public final class Converters {
           } else {
             nrAttribs++;
           }
+        } else if (obj instanceof java.lang.Throwable) {
+          if (extraThrowable == null) {
+            extraThrowable = new ThrowableProxy((java.lang.Throwable) obj);
+          } else if (extraThrowable instanceof ThrowableProxy) {
+            java.lang.Throwable et = ((ThrowableProxy) extraThrowable).getThrowable();
+            et.addSuppressed((java.lang.Throwable) obj);
+            extraThrowable = new ThrowableProxy(et);
+          }
+        } else {
+          nrXArgs++;
         }
       }
-      if (nrAttribs + index == arguments.length) {
+      if (nrXArgs == 0) {
         xArgs = Collections.EMPTY_LIST;
       } else {
-        xArgs = new ArrayList<>(arguments.length - nrAttribs - index);
+        xArgs = new ArrayList<>(nrXArgs);
       }
       attribs = Maps.newHashMapWithExpectedSize(nrAttribs + (marker == null ? 0 : 1));
       for (int i = index; i < arguments.length; i++) {
@@ -203,7 +216,7 @@ public final class Converters {
           if (!"trId".equals(name)) {
             attribs.put(name, ((LogAttribute) obj).getValue());
           }
-        } else {
+        } else if (!(obj instanceof Throwable)) {
           xArgs.add(obj);
         }
       }

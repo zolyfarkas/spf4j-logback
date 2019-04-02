@@ -78,4 +78,11 @@ public class ConvertersTest {
     LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec2), avroLogbackEncoder.getCharset()));
   }
 
+  @Test
+  public void testSerException() {
+    LogRecord rec =
+            Converters.convert(new TestLogEvent(Instant.now(), "Bla {} ",  "aaa", new RuntimeException(), "boo"));
+    Assert.assertNotNull(rec.getThrowable());
+  }
+
 }
