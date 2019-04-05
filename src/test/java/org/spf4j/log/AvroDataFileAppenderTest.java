@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -197,15 +198,16 @@ public class AvroDataFileAppenderTest {
 
 
   private void deleteTestFiles(final String fileNameBase) throws IOException {
-    Files.newDirectoryStream(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER), (p)
-                    -> p.getFileName().toString().startsWith(fileNameBase))
-            .forEach((p) -> {
+    try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER), (p)
+            -> p.getFileName().toString().startsWith(fileNameBase))) {
+      stream.forEach((p) -> {
               try {
                 Files.delete(p);
               } catch (IOException ex) {
                 throw new UncheckedIOException(ex);
               }
             });
+    }
   }
 
   @Test
