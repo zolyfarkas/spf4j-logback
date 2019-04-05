@@ -34,7 +34,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.config.DrillProperties;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -125,11 +124,13 @@ public class AvroDataFileAppenderTest {
   @Test
   public void testAvroDataFileAppender2()
           throws IOException, CompileException, ExecutionException, InterruptedException {
+    TestLogEvent.resetCounter();
     deleteTestFiles("testAvroLog");
     AvroDataFileAppender appender = new AvroDataFileAppender();
     appender.setDestinationPath(org.spf4j.base.Runtime.TMP_FOLDER);
     appender.setFileNameBase("testAvroLog");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
+    LOG.debug("Existing Files {}", appender.getLogFiles());
     appender.start();
     appender.append(new TestLogEvent());
     Instant now = Instant.now();
@@ -187,18 +188,17 @@ public class AvroDataFileAppenderTest {
     appender.append(new TestLogEvent(now.minus(3, ChronoUnit.DAYS)));
     appender.append(new TestLogEvent());
     appender.stop();
+    LOG.debug("Appender stopped");
     List<Path> logFiles = appender.getLogFiles();
     LOG.debug("All Log files: {}", logFiles);
-    expect.assertObservation(10, TimeUnit.SECONDS);
+    expect.assertObservation();
   }
 
 
 
   private void deleteTestFiles(final String fileNameBase) throws IOException {
-    Files.walk(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER))
-            .filter((p)
-                    -> p.getFileName().toString().startsWith(fileNameBase)
-            )
+    Files.newDirectoryStream(Paths.get(org.spf4j.base.Runtime.TMP_FOLDER), (p)
+                    -> p.getFileName().toString().startsWith(fileNameBase))
             .forEach((p) -> {
               try {
                 Files.delete(p);

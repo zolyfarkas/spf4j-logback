@@ -36,6 +36,11 @@ final class TestLogEvent implements ILoggingEvent {
 
   private final Object[] args;
 
+  public static void resetCounter() {
+    CNT.set(0);
+  }
+
+
   TestLogEvent() {
     this(Instant.now());
   }

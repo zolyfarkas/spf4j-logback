@@ -34,6 +34,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 import org.apache.avro.AvroRuntimeException;
@@ -82,6 +86,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   private long maxLogsBytes;
 
+  private CompletableFuture<Void> cleanup;
+
   public AvroDataFileAppender() {
     zoneId = ZULU;
     fileNameBase = org.spf4j.base.Runtime.PROCESS_NAME;
@@ -94,6 +100,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
     this.maxNrFiles = 15;
     this.maxLogsBytes = 1024 * 1024 * 100;
+    this.cleanup = CompletableFuture.completedFuture(null);
   }
 
   public void setMaxNrFiles(final int maxNrFiles) {
@@ -403,6 +410,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         }
         Registry.unregister("avro.log.appender", this.getName());
         super.stop();
+        try {
+          this.cleanup.get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException ex) {
+          throw new RuntimeException(ex);
+        }
       }
     }
   }
@@ -412,9 +424,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     Instant now = Instant.now();
     try {
       synchronized (sync) {
-        ensurePartition(now);
-        Registry.export("avro.log.appender", this.getName(), this);
-        super.start();
+        if (!isStarted()) {
+          ensurePartition(now);
+          Registry.export("avro.log.appender", this.getName(), this);
+          super.start();
+        }
       }
     } catch (IOException | InterruptedException | RuntimeException ex) {
        addError("Unable to ensure file partition " + now, ex);
@@ -434,12 +448,12 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
           writer = null;
         }
       }
-      DefaultExecutor.INSTANCE.execute(new AbstractRunnable(true) {
+      this.cleanup = this.cleanup.thenRunAsync(new AbstractRunnable(true) {
         @Override
         public void doRun() throws IOException {
           cleanup();
         }
-      });
+      }, DefaultExecutor.INSTANCE);
       fileDate = target;
       writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
       if (codecFact != null) {
@@ -486,6 +500,11 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     LogRecord record = Converters.convert(eventObject);
     Instant ts = record.getTs();
     synchronized (sync) {
+      if (!started) {
+        org.spf4j.base.Runtime.error("Appending to closed appender " + record);
+        this.addError("Appending to closed appender " + record);
+        return;
+      }
       try {
         ensurePartition(ts);
       } catch (IOException | InterruptedException | RuntimeException ex) {
