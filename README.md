@@ -8,13 +8,16 @@ A collection of logback components to implement:
 
  * Available /logs JAX-RS actuator endpoint, that allows you fast access to your logs, across your entire cluster. (in spf4j-jaxrs-actuator)
 
+ latest version: [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.spf4j/spf4j-logback/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.spf4j/spf4j-logback/)
+
+
 To use it all you need to do it to add :
 
 ```
     <dependency>
       <groupId>org.spf4j</groupId>
       <artifactId>spf4j-logback</artifactId>
-      <version>1.2.1-SNAPSHOT</version>
+      <version>LATEST</version>
     </dependency>
 ```
 
