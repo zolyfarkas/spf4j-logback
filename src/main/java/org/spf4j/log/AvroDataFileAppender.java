@@ -540,7 +540,4 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
   }
 
-
-
-
 }
