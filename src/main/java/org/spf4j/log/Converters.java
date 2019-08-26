@@ -222,7 +222,8 @@ public final class Converters {
         Object obj = arguments[i];
         if (obj instanceof LogAttribute) {
           String name = ((LogAttribute) obj).getName();
-          if (!"trId".equals(name)) {
+          if (!LogAttribute.ID_ATTR_NAME.equals(name)
+                  && !LogAttribute.PROFILE_SAMPLES_ATTR_NAME.equals(name)) {
             attribs.put(name, ((LogAttribute) obj).getValue());
           }
         } else if (!(obj instanceof Throwable)) {
