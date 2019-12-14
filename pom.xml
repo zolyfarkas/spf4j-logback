@@ -26,12 +26,12 @@
   <parent>
     <groupId>org.spf4j</groupId>
     <artifactId>spf4j</artifactId>
-    <version>8.6.28</version>
+    <version>8.6.29</version>
   </parent>
   <name>${project.artifactId}-${project.version}</name>
   <description>Logback message formatters and appenders</description>
   <properties>
-    <spf4j.version>8.6.28</spf4j.version>
+    <spf4j.version>8.6.29</spf4j.version>
   </properties>
 
   <scm>
