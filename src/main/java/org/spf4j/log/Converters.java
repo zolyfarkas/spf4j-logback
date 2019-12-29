@@ -34,7 +34,6 @@ package org.spf4j.log;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
-import ch.qos.logback.classic.spi.ThrowableProxy;
 import com.google.common.collect.Maps;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
@@ -44,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.slf4j.Marker;
 import org.spf4j.base.Arrays;
@@ -57,6 +57,7 @@ import org.spf4j.base.avro.RemoteException;
 import org.spf4j.base.avro.StackSampleElement;
 import org.spf4j.base.avro.StackTraceElement;
 import org.spf4j.base.avro.Throwable;
+import org.spf4j.ds.IdentityHashSet;
 
 /**
  * @author Zoltan Farkas
@@ -88,19 +89,28 @@ public final class Converters {
     return result;
   }
 
-  public static List<Throwable> convert(final IThrowableProxy[] throwables) {
+  public static List<Throwable> convert(final IThrowableProxy[] throwables, final Set<IThrowableProxy> seen) {
     int l = throwables.length;
     if (l == 0) {
       return Collections.EMPTY_LIST;
     }
     List<Throwable> result = new ArrayList<>(l);
     for (IThrowableProxy t : throwables) {
-      result.add(convert(t));
+      result.add(convert(t, seen));
     }
     return result;
   }
 
   public static Throwable convert(final IThrowableProxy throwable) {
+    return convert(throwable, new IdentityHashSet<>(8));
+  }
+
+  public static Throwable convert(final IThrowableProxy throwable, final Set<IThrowableProxy> seen) {
+    if (seen.contains(throwable)) {
+      return new Throwable(throwable.getClassName(),
+              "CIRCULAR REFERENCE: " + throwable.getMessage(), Collections.EMPTY_LIST, null, Collections.EMPTY_LIST);
+    }
+    seen.add(throwable);
     String message = throwable.getMessage();
     RemoteException rex = null;
     if (throwable instanceof ThrowableProxy) {
@@ -113,14 +123,14 @@ public final class Converters {
       return new Throwable(throwable.getClassName(),
               message == null ? "" : message, convert(throwable.getStackTraceElementProxyArray()),
               rex.getRemoteCause(),
-              convert(throwable.getSuppressed()));
+              convert(throwable.getSuppressed(), seen));
     }
     IThrowableProxy cause = throwable.getCause();
     return new Throwable(throwable.getClassName(),
             message == null ? "" : message,
             convert(throwable.getStackTraceElementProxyArray()),
-            cause == null ? null : convert(cause),
-            convert(throwable.getSuppressed()));
+            cause == null ? null : convert(cause, seen),
+            convert(throwable.getSuppressed(), seen));
   }
 
   public static java.lang.Throwable convert2(final IThrowableProxy throwable) {
@@ -202,11 +212,10 @@ public final class Converters {
           }
         } else if (obj instanceof java.lang.Throwable) {
           if (extraThrowable == null) {
-            extraThrowable = new ThrowableProxy((java.lang.Throwable) obj);
-          } else if (extraThrowable instanceof ThrowableProxy) {
-            java.lang.Throwable et = ((ThrowableProxy) extraThrowable).getThrowable();
-            et.addSuppressed((java.lang.Throwable) obj);
-            extraThrowable = new ThrowableProxy(et);
+            extraThrowable = ThrowableProxy.create((java.lang.Throwable) obj);
+          } else {
+            extraThrowable = ThrowableProxy.addSuppressed(extraThrowable,
+                    ThrowableProxy.create((java.lang.Throwable) obj));
           }
         } else {
           nrXArgs++;
