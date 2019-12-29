@@ -86,4 +86,17 @@ public class ConvertersTest {
     Assert.assertNotNull(rec.getThrowable());
   }
 
+
+
+  @Test
+  public void testConverter() {
+    RuntimeException ex = new RuntimeException("test");
+    RuntimeException ex2 = new RuntimeException("test2", ex);
+    ex.addSuppressed(ex2);
+    LogRecord lr = Converters.convert(new TestLogEvent(Instant.now(), "Test {}", ThrowableProxy.create(ex), "arg",
+                            ThrowableProxy.create(ex2)));
+    Assert.assertEquals("Test arg", lr.getMsg());
+    LOG.debug("log message", lr);
+  }
+
 }

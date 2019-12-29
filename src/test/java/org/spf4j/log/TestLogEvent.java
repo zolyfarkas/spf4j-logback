@@ -36,6 +36,8 @@ final class TestLogEvent implements ILoggingEvent {
 
   private final Object[] args;
 
+  private final IThrowableProxy throwable;
+
   public static void resetCounter() {
     CNT.set(0);
   }
@@ -49,10 +51,15 @@ final class TestLogEvent implements ILoggingEvent {
     this(instant, "message " + CNT.getAndIncrement(), Arrays.EMPTY_OBJ_ARRAY);
   }
 
-  TestLogEvent(final Instant instant, final String message, final Object... args) {
+  TestLogEvent(final Instant instant, final String message,  final Object... args) {
+    this(instant, message, null, args);
+  }
+
+  TestLogEvent(final Instant instant, final String message, final IThrowableProxy throwable, final Object... args) {
     this.instant = instant;
     this.message = message;
     this.args = args;
+    this.throwable = throwable;
   }
 
   @Override
@@ -93,7 +100,7 @@ final class TestLogEvent implements ILoggingEvent {
   @Override
   @Nullable
   public IThrowableProxy getThrowableProxy() {
-    return null;
+    return throwable;
   }
 
   @Override
