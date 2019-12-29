@@ -15,6 +15,8 @@
  */
 package org.spf4j.log;
 
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.LoggingEvent;
 import com.google.common.collect.ImmutableMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
@@ -98,5 +100,19 @@ public class ConvertersTest {
     Assert.assertEquals("Test arg", lr.getMsg());
     LOG.debug("log message", lr);
   }
+
+
+  /** Logback will throw java.lang.StackOverflowError for this */
+  @Test
+  public void testLogEvent() {
+    RuntimeException ex = new RuntimeException("test");
+    RuntimeException ex2 = new RuntimeException("test2", ex);
+    ex.addSuppressed(ex2);
+    LoggingEvent ev = new LoggingEvent("test",  new LoggerContext().getLogger("test"),
+            ch.qos.logback.classic.Level.DEBUG, "message {}",
+            ex2, new Object[] {"arg"});
+    Assert.assertEquals("message arg", ev.getFormattedMessage());
+  }
+
 
 }

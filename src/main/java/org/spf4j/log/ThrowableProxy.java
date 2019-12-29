@@ -27,7 +27,7 @@ public final class ThrowableProxy implements IThrowableProxy {
   private transient PackagingDataCalculator packagingDataCalculator;
   private boolean calculatedPackageData = false;
 
-  public static IThrowableProxy create(final Throwable t) {
+  public static ThrowableProxy create(final Throwable t) {
     return create(t, null, new HashMap<>(4));
   }
 

@@ -105,6 +105,7 @@ public final class Converters {
     return convert(throwable, new IdentityHashSet<>(8));
   }
 
+  @SuppressFBWarnings("ITC_INHERITANCE_TYPE_CHECKING")
   public static Throwable convert(final IThrowableProxy throwable, final Set<IThrowableProxy> seen) {
     if (seen.contains(throwable)) {
       return new Throwable(throwable.getClassName(),
@@ -118,24 +119,33 @@ public final class Converters {
       if (jThr instanceof RemoteException) {
         rex = (RemoteException) jThr;
       }
+    } else if (throwable instanceof ch.qos.logback.classic.spi.ThrowableProxy) {
+      java.lang.Throwable jThr = ((ch.qos.logback.classic.spi.ThrowableProxy) throwable).getThrowable();
+      if (jThr instanceof RemoteException) {
+        rex = (RemoteException) jThr;
+      }
     }
     if (rex != null) {
       return new Throwable(throwable.getClassName(),
               message == null ? "" : message, convert(throwable.getStackTraceElementProxyArray()),
               rex.getRemoteCause(),
               convert(throwable.getSuppressed(), seen));
+    } else {
+      IThrowableProxy cause = throwable.getCause();
+      return new Throwable(throwable.getClassName(),
+              message == null ? "" : message,
+              convert(throwable.getStackTraceElementProxyArray()),
+              cause == null ? null : convert(cause, seen),
+              convert(throwable.getSuppressed(), seen));
     }
-    IThrowableProxy cause = throwable.getCause();
-    return new Throwable(throwable.getClassName(),
-            message == null ? "" : message,
-            convert(throwable.getStackTraceElementProxyArray()),
-            cause == null ? null : convert(cause, seen),
-            convert(throwable.getSuppressed(), seen));
   }
 
+  @SuppressFBWarnings("ITC_INHERITANCE_TYPE_CHECKING")
   public static java.lang.Throwable convert2(final IThrowableProxy throwable) {
     if (throwable instanceof ThrowableProxy) {
       return ((ThrowableProxy) throwable).getThrowable();
+    } else if (throwable instanceof ch.qos.logback.classic.spi.ThrowableProxy) {
+      return ((ch.qos.logback.classic.spi.ThrowableProxy) throwable).getThrowable();
     }
     throw new UnsupportedOperationException("Cannot convert " + throwable);
   }

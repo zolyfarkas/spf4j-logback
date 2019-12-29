@@ -2,3 +2,5 @@
 /nbproject/
 /nb-configuration.xml
 /src/test/resources/jaxrs-spf4j-demo_2019-03-14.avro
+/.idea/
+/spf4j-logback.iml
