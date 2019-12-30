@@ -245,7 +245,7 @@ public final class Converters {
                   && !LogAttribute.PROFILE_SAMPLES_ATTR_NAME.equals(name)) {
             attribs.put(name, ((LogAttribute) obj).getValue());
           }
-        } else if (!(obj instanceof Throwable)) {
+        } else if (!(obj instanceof java.lang.Throwable)) {
           xArgs.add(obj);
         }
       }
