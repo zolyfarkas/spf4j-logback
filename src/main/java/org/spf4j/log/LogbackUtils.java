@@ -17,10 +17,15 @@ package org.spf4j.log;
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.joran.JoranConfigurator;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
+import ch.qos.logback.core.joran.spi.JoranException;
 import ch.qos.logback.core.spi.AppenderAttachable;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -48,6 +53,10 @@ public final class LogbackUtils {
       return;
     }
     LoggerContext context = (LoggerContext) iLoggerFactory;
+    scanAppenders(context, consumer);
+  }
+
+  public static void scanAppenders(final LoggerContext context, final Consumer<AvroDataFileAppender> consumer) {
     for (Logger logger : context.getLoggerList()) {
       configuredFileAppenders(logger, consumer);
     }
@@ -62,6 +71,23 @@ public final class LogbackUtils {
         consumer.accept((AvroDataFileAppender) appender);
       } else if (appender instanceof AppenderAttachable) {
         configuredFileAppenders((AppenderAttachable) appender, consumer);
+      }
+    }
+  }
+
+  public static void reconfigure(final String classPathConfigFile) {
+    ILoggerFactory loggerFactory = LoggerFactory.getILoggerFactory();
+    if (loggerFactory instanceof LoggerContext) {
+      LoggerContext lc = (LoggerContext) loggerFactory;
+      lc.reset();
+      JoranConfigurator jc = new JoranConfigurator();
+      jc.setContext(lc);
+      try (InputStream is = ClassLoader.getSystemResourceAsStream(classPathConfigFile)) {
+        jc.doConfigure(is);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
+      } catch (JoranException ex) {
+        throw new RuntimeException(ex);
       }
     }
   }
