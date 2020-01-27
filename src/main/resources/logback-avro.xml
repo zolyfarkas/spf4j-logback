@@ -4,7 +4,7 @@
     <encoder class="org.spf4j.log.ReadableLogbackEncoder"/>
     <!-- you want JSON, use this: <encoder class="org.spf4j.log.AvroLogbackEncoder"/> -->
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-      <level>ERROR</level>
+      <level>error</level>
     </filter>
   </appender>
 
@@ -21,6 +21,7 @@
 
   <logger name="org.spf4j" level="info" additivity="false">
     <appender-ref ref="ASYNC_FILE" />
+    <appender-ref ref="CONSOLE" />
   </logger>
 
   <root level="warn">
