@@ -85,8 +85,10 @@ public final class LogbackUtils {
       try (InputStream is = ClassLoader.getSystemResourceAsStream(classPathConfigFile)) {
         jc.doConfigure(is);
       } catch (IOException ex) {
+        jc.addError("Configuration failure", ex);
         throw new UncheckedIOException(ex);
       } catch (JoranException ex) {
+        jc.addError("Configuration failure", ex);
         throw new RuntimeException(ex);
       }
     }
