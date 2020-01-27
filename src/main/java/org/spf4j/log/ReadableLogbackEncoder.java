@@ -56,7 +56,13 @@ public final class ReadableLogbackEncoder extends EncoderBase<ILoggingEvent> {
 
   @Override
   public byte[] encode(final ILoggingEvent event) {
-    return printer.printToBytes(Converters.convert2(event));
+    try {
+      return printer.printToBytes(Converters.convert2(event));
+    } catch (RuntimeException ex) {
+      org.spf4j.base.Runtime.error("Failed to convert " + event, ex);
+      this.addError("Failed to convert " + event, ex);
+      return Arrays.EMPTY_BYTE_ARRAY;
+    }
   }
 
 

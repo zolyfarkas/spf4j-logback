@@ -115,7 +115,7 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> {
       osw.append('\n');
       osw.flush();
       return bb.toByteArray();
-    } catch (IOException ex) {
+    } catch (IOException | RuntimeException ex) {
       this.addError("Failed to write header for " + LogRecord.class, ex);
       return Arrays.EMPTY_BYTE_ARRAY;
     }
