@@ -22,9 +22,7 @@ package org.spf4j.log;
 public final class LogbackService {
 
   static {
-    // install java.util.logging -> org.slf4j.logging bridge
-    SLF4JBridgeHandler.removeHandlersForRootLogger();
-    SLF4JBridgeHandler.install();
+    redirecJDKLogging2Slf4j();
   }
 
 
@@ -49,6 +47,12 @@ public final class LogbackService {
     System.setProperty("appName", applicationName); // for logback config xml.
     System.setProperty("logFolder", logFolder); // for logback config xml.
     System.setProperty("logFileBase", fileNameBase); // for logback config xml.
+  }
+
+  public static void redirecJDKLogging2Slf4j() {
+    // install java.util.logging -> org.slf4j.logging bridge
+    SLF4JBridgeHandler.removeHandlersForRootLogger();
+    SLF4JBridgeHandler.install();
   }
 
 
