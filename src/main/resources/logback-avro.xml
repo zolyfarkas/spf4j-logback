@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
   <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
     <encoder class="org.spf4j.log.ReadableLogbackEncoder"/>
     <!-- you want JSON, use this: <encoder class="org.spf4j.log.AvroLogbackEncoder"/> -->
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">

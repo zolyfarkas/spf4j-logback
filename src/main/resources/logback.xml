@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+  <appender name="CONSOLE_ERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
     <encoder class="org.spf4j.log.ReadableLogbackEncoder"/>
     <!-- you want JSON, use this: <encoder class="org.spf4j.log.AvroLogbackEncoder"/> -->
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>error</level>
+    </filter>
+  </appender>
+  <appender name="CONSOLE_OUT" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.out</target>
+    <encoder class="org.spf4j.log.ReadableLogbackEncoder"/>
+    <!-- you want JSON, use this: <encoder class="org.spf4j.log.AvroLogbackEncoder"/> -->
+    <filter class="org.spf4j.log.UpToThresholdFilter">
+      <level>warn</level>
+    </filter>
   </appender>
   <logger name="org.spf4j" level="info" additivity="false">
-    <appender-ref ref="CONSOLE" />
+    <appender-ref ref="CONSOLE_ERR" />
+    <appender-ref ref="CONSOLE_OUT" />
   </logger>
   <root level="warn">
-    <appender-ref ref="CONSOLE" />
+    <appender-ref ref="CONSOLE_ERR" />
+    <appender-ref ref="CONSOLE_OUT" />    
   </root>
 </configuration>
