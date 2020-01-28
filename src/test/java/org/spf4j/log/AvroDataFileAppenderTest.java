@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -120,29 +121,32 @@ public class AvroDataFileAppenderTest {
     appender.stop();
     LOG.debug("All Log files: {}", appender.getLogFiles());
     int i = 0;
-    Iterable<LogRecord> logs = appender.getLogs("local", 0, 100);
+    List<LogRecord> logs = new ArrayList<>();
+    appender.getLogs("local", 0, 100, logs::add);
     for (LogRecord rec : logs) {
       LOG.debug("retrieved1", rec);
       i++;
     }
     Assert.assertEquals(5, i);
     i = 0;
-    logs = appender.getLogs("local", 2, 100);
+    logs.clear();
+    appender.getLogs("local", 2, 100, logs::add);
     for (LogRecord rec : logs) {
       LOG.debug("retrieved2", rec);
       i++;
     }
     Assert.assertEquals(3, i);
     i = 0;
-    logs = appender.getLogs("local", 3, 100);
+    logs.clear();
+    appender.getLogs("local", 3, 100, logs::add);
     for (LogRecord rec : logs) {
       LOG.debug("retrieved3", rec);
       i++;
     }
     Assert.assertEquals(2, i);
-
-    List<LogRecord> filteredLogs = appender.getFilteredLogs("test", 0, 10,
-            Program.compilePredicate("log.msg == 'message 4'", "log"));
+    List<LogRecord> filteredLogs =  new ArrayList<>();
+    appender.getFilteredLogs("test", 0, 10,
+            Program.compilePredicate("log.msg == 'message 4'", "log"), filteredLogs::add);
     LOG.debug("filtered logs", filteredLogs);
     Assert.assertEquals(1, filteredLogs.size());
     Assert.assertTrue(filteredLogs.get(0).getOrigin().endsWith("1"));
@@ -195,7 +199,8 @@ public class AvroDataFileAppenderTest {
     appender.setDestinationPath(new File("./src/test/resources").getCanonicalPath());
     appender.setFileNameBase("jaxrs-spf4j-demo");
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
-    List<LogRecord> logs = appender.getLogs("test", 0, 10);
+    List<LogRecord> logs = new ArrayList<>();
+    appender.getLogs("test", 0, 10, logs::add);
     LogPrinter printer = new LogPrinter(StandardCharsets.UTF_8);
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
     for (LogRecord record : logs) {
@@ -222,7 +227,8 @@ public class AvroDataFileAppenderTest {
       }
     });
     for (int i = 1; i < 100; i++) {
-      List<LogRecord> logs = appender.getLogs("local", 0, 100);
+      List<LogRecord> logs = new ArrayList<>();
+      appender.getLogs("local", 0, 100, logs::add);
       LOG.debug("read {} logs", logs.size());
       Assert.assertTrue(logs.size() <= 100);
       Thread.sleep(1);

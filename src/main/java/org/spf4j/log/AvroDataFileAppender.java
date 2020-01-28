@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 import org.apache.avro.AvroRuntimeException;
@@ -262,10 +263,10 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return DataFileReader.openReader(getCurrentFile().toFile(), new SpecificDatumReader<>(LogRecord.class));
   }
 
-  public List<LogRecord> getLogs(
-          final String originPrefix, final long ptailOffset, final int limit)
+  public void getLogs(
+          final String originPrefix, final long ptailOffset, final int limit, final Consumer<LogRecord> records)
           throws IOException {
-    return getLogs(getLogFiles(), originPrefix, ptailOffset, limit);
+     getLogs(getLogFiles(), originPrefix, ptailOffset, limit, records);
   }
 
   /**
@@ -277,13 +278,13 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
    * @return
    * @throws IOException
    */
-  private List<LogRecord> getLogs(final List<Path> logFiles,
-          final String originPrefix, final long ptailOffset, final int limit)
+  private void getLogs(final List<Path> logFiles,
+          final String originPrefix, final long ptailOffset, final int limit, final Consumer<LogRecord> records)
           throws IOException {
     List<LogRecord> result = Collections.EMPTY_LIST;
     // try to get from previous file.
     if (logFiles.isEmpty()) {
-      return result;
+      return;
     }
     if (isStarted()) {
       flush();
@@ -307,35 +308,33 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       } else {
         toSkip = 0;
       }
-      List<LogRecord> intermediate = new ArrayList<>(left);
-      while (nrRecs > 0 && intermediate.size() < left) {
+      int j = 0;
+      while (nrRecs > 0 && j < left) {
         LogRecord log = reader.next();
         if (originPrefix != null) {
           log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
         }
-        intermediate.add(log);
+        records.accept(log);
         nrRecs--;
+        j++;
       }
-      intermediate.addAll(result);
-      result = intermediate;
       i--;
     }
-    return result;
   }
 
-  public List<LogRecord> getFilteredLogs(final String originPrefix, final long ptailOffset,
-          final int limit, final Predicate<LogRecord> pred)
+  public void getFilteredLogs(final String originPrefix, final long ptailOffset,
+          final int limit, final Predicate<LogRecord> pred, final Consumer<LogRecord> records)
           throws IOException {
     List<Path> logFiles = getLogFiles();
     if (logFiles.isEmpty()) {
-      return Collections.EMPTY_LIST;
+      return;
     }
     if (isStarted()) {
       flush();
     }
     File tmp = writeResultSet(logFiles, originPrefix, pred);
     try {
-      return getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit);
+       getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit, records);
     } finally {
       if (!tmp.delete()) {
         addError("Unable to delete temp file " + tmp);
