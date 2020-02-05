@@ -21,7 +21,7 @@
 
   <groupId>org.spf4j</groupId>
   <artifactId>spf4j-logback</artifactId>
-  <version>1.2.14-SNAPSHOT</version>
+  <version>1.2.14</version>
   <packaging>jar</packaging>
   <parent>
     <groupId>org.spf4j</groupId>
@@ -38,7 +38,7 @@
     <connection>scm:git:https://github.com/zolyfarkas/spf4j-logback.git</connection>
     <developerConnection>scm:git:https://github.com/zolyfarkas/spf4j-logback.git</developerConnection>
     <url>https://github.com/zolyfarkas/spf4j-logback/</url>
-    <tag>HEAD</tag>
+    <tag>spf4j-logback-1.2.14</tag>
   </scm>
 
 <build>
