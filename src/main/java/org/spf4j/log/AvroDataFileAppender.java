@@ -291,6 +291,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
     int i = logFiles.size() - 1;
     long tailOffset = ptailOffset;
+    SpecificDatumReader<LogRecord> reader = new SpecificDatumReader<>(LogRecord.class);
     while (i >= 0 && result.size() < limit) {
       Path p = logFiles.get(i);
       long nrRecs = getNrLogs(p);
@@ -302,15 +303,15 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       int left = limit - result.size();
       long toSkip = nrRecs - left;
-      FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(), new SpecificDatumReader<>(LogRecord.class));
+      DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader);
       if (toSkip > 0) {
-        skip(reader, toSkip);
+        skip(stream, toSkip);
       } else {
         toSkip = 0;
       }
       int j = 0;
       while (nrRecs > 0 && j < left) {
-        LogRecord log = reader.next();
+        LogRecord log = stream.next();
         if (originPrefix != null) {
           log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
         }
@@ -376,9 +377,18 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return tmp;
   }
 
-  public static void skip(final FileReader<LogRecord> it,  final long count) throws IOException {
+  public static void skip(final DataFileStream<LogRecord> it,  final long count) throws IOException {
     LogRecord tmp = new LogRecord();
-    for (long i = 0; i < count; i++) {
+    long i = count;
+    while (it.hasNext()) {
+      long blockCount = it.getBlockCount();
+      if (blockCount > i) {
+        break;
+      }
+      i -= blockCount;
+      it.nextBlock();
+    }
+    for (; i > 0; i--) {
       it.next(tmp);
     }
   }
