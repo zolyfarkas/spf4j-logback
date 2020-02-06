@@ -303,21 +303,22 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       int left = limit - result.size();
       long toSkip = nrRecs - left;
-      DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader);
-      if (toSkip > 0) {
-        skip(stream, toSkip);
-      } else {
-        toSkip = 0;
-      }
-      int j = 0;
-      while (nrRecs > 0 && j < left) {
-        LogRecord log = stream.next();
-        if (originPrefix != null) {
-          log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
+      try (DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader)) {
+        if (toSkip > 0) {
+          skip(stream, toSkip);
+        } else {
+          toSkip = 0;
         }
-        records.accept(log);
-        nrRecs--;
-        j++;
+        int j = 0;
+        while (nrRecs > 0 && j < left) {
+          LogRecord log = stream.next();
+          if (originPrefix != null) {
+            log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
+          }
+          records.accept(log);
+          nrRecs--;
+          j++;
+        }
       }
       i--;
     }
@@ -347,8 +348,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
           final Predicate<LogRecord> pred)
           throws IOException {
     File tmp = File.createTempFile("scan", "tmp.avro", this.destinationPath.toFile());
-    try {
-      DataFileWriter<LogRecord> wr = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
+    try (DataFileWriter<LogRecord> wr = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class))) {
       if (codecFact != null) {
         wr.setCodec(codecFact);
       }
@@ -365,7 +365,6 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
           }
         }
       }
-      wr.close();
     } catch (IOException | RuntimeException ex)  {
       if (!tmp.delete()) {
         IOException ioEx = new IOException("Cannot delete " + tmp);
@@ -378,7 +377,6 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public static void skip(final DataFileStream<LogRecord> it,  final long count) throws IOException {
-    LogRecord tmp = new LogRecord();
     long i = count;
     while (it.hasNext()) {
       long blockCount = it.getBlockCount();
@@ -388,6 +386,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       i -= blockCount;
       it.nextBlock();
     }
+    LogRecord tmp = new LogRecord();
     for (; i > 0; i--) {
       it.next(tmp);
     }
