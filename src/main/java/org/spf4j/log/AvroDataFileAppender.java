@@ -207,7 +207,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         return false;
       }
       String name = fileName.toString();
-      return name.startsWith(fileNameBase) && name.endsWith(".avro");
+      return name.startsWith(fileNameBase) && name.endsWith(".logs.avro");
     })) {
       for (Path p : dStream) {
         contents.add(p);
@@ -467,7 +467,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       if (codecFact != null) {
         writer.setCodec(codecFact);
       }
-      String fileName = fileNameBase + '_' + target + ".avro";
+      String fileName = fileNameBase + '_' + target + ".logs.avro";
       currentFile = destinationPath.resolve(fileName);
       if (Files.isWritable(currentFile) && isValidFile(currentFile)) {
         writer = writer.appendTo(currentFile.toFile());
