@@ -29,7 +29,8 @@
     <version>8.8.0</version>
   </parent>
   <name>${project.artifactId}-${project.version}</name>
-  <description>Logback message formatters and appenders</description>
+  <description>Logback message formatters and appenders for using avro for your logging format
+  to get structure and efficiency</description>
   <properties>
     <spf4j.version>8.8.0</spf4j.version>
   </properties>
