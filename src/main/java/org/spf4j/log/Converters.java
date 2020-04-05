@@ -264,10 +264,14 @@ public final class Converters {
   public static Slf4jLogRecord convert2(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
     Object[] arguments;
+    Object[] argumentArray = event.getArgumentArray();
     if (extraThrowable == null) {
-      arguments = event.getArgumentArray();
+      arguments = argumentArray == null ? Arrays.EMPTY_OBJ_ARRAY : argumentArray;
     } else {
-      arguments = Arrays.append(event.getArgumentArray(), convert2(extraThrowable));
+      java.lang.Throwable convertedEx = convert2(extraThrowable);
+      arguments = argumentArray == null
+              ? new Object[] {convertedEx}
+              : Arrays.append(argumentArray, convertedEx);
     }
     return new Slf4jLogRecordImpl(false, event.getLoggerName(), convert2(event.getLevel()),
             event.getMarker(), event.getTimeStamp(), event.getMessage(), arguments);
