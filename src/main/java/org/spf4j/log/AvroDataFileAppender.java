@@ -252,7 +252,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
 
   @JmxExport
-  public long getNrLogs() throws IOException {
+  public long getCurrentFileNrLogs() throws IOException {
     return getNrLogs(getCurrentFile());
   }
 
@@ -325,7 +325,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public void getFilteredLogs(final String originPrefix, final long ptailOffset,
-          final int limit, final Predicate<LogRecord> pred, final Consumer<LogRecord> records)
+          final int limit, final Predicate<LogRecord> pred,
+          final Consumer<LogRecord> records)
           throws IOException {
     List<Path> logFiles = getLogFiles();
     if (logFiles.isEmpty()) {
