@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -112,41 +113,49 @@ public class AvroDataFileAppenderTest {
     appender.setPartitionZoneID(ZoneId.systemDefault().getId());
     LOG.debug("Existing Files {}", appender.getLogFiles());
     appender.start();
-    appender.append(new TestLogEvent());
+    TestLogEvent e1 = new TestLogEvent("m1");
+    appender.append(e1);
     Instant now = Instant.now();
-    appender.append(new TestLogEvent(now.minus(1, ChronoUnit.DAYS)));
-    appender.append(new TestLogEvent(now.minus(2, ChronoUnit.DAYS)));
-    appender.append(new TestLogEvent(now.minus(3, ChronoUnit.DAYS)));
-    appender.append(new TestLogEvent());
+    TestLogEvent e3 = new TestLogEvent(now.minus(1, ChronoUnit.DAYS), "m2");
+    appender.append(e3);
+    TestLogEvent e4 = new TestLogEvent(now.minus(2, ChronoUnit.DAYS), "m3");
+    appender.append(e4);
+    TestLogEvent e5 = new TestLogEvent(now.minus(3, ChronoUnit.DAYS), "m4");
+    appender.append(e5);
+    TestLogEvent e2 = new TestLogEvent("m5");
+    appender.append(e2);
     appender.stop();
-    LOG.debug("All Log files: {}", appender.getLogFiles());
+    List<Path> logFiles = appender.getLogFiles();
+    LOG.debug("All Log files: {}", logFiles);
+    Assert.assertEquals(4, logFiles.size());
     int i = 0;
-    List<LogRecord> logs = new ArrayList<>();
-    appender.getLogs("local", 0, 100, logs::add);
-    for (LogRecord rec : logs) {
-      LOG.debug("retrieved1", rec);
-      i++;
-    }
-    Assert.assertEquals(5, i);
+    List<String> logs = new ArrayList<>();
+    appender.getLogs("local", 0, 100, (l) -> logs.add(l.getMsg()));
+    Assert.assertEquals(Arrays.asList("m1", "m5", "m2", "m3", "m4"), logs);
     i = 0;
     logs.clear();
-    appender.getLogs("local", 2, 100, logs::add);
-    for (LogRecord rec : logs) {
+
+    appender.getLogs("local", 1, 100, (l) -> logs.add(l.getMsg()));
+    Assert.assertEquals(Arrays.asList("m1", "m2", "m3", "m4"), logs);
+    logs.clear();
+    
+    appender.getLogs("local", 2, 100, (l) -> logs.add(l.getMsg()));
+    for (String rec : logs) {
       LOG.debug("retrieved2", rec);
       i++;
     }
     Assert.assertEquals(3, i);
     i = 0;
     logs.clear();
-    appender.getLogs("local", 3, 100, logs::add);
-    for (LogRecord rec : logs) {
+    appender.getLogs("local", 3, 100, (l) -> logs.add(l.getMsg()));
+    for (String rec : logs) {
       LOG.debug("retrieved3", rec);
       i++;
     }
     Assert.assertEquals(2, i);
     List<LogRecord> filteredLogs =  new ArrayList<>();
     appender.getFilteredLogs("test", 0, 10,
-            Program.compilePredicate("log.msg == 'message 4'", "log"), filteredLogs::add);
+            Program.compilePredicate("log.msg == 'm5'", "log"), filteredLogs::add);
     LOG.debug("filtered logs", filteredLogs);
     Assert.assertEquals(1, filteredLogs.size());
     Assert.assertTrue(filteredLogs.get(0).getOrigin().endsWith("1"));

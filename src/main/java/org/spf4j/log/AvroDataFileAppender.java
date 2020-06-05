@@ -17,6 +17,7 @@ package org.spf4j.log;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
+import com.google.common.annotations.Beta;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
@@ -264,13 +265,14 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public void getLogs(
-          final String originPrefix, final long ptailOffset, final int limit, final Consumer<LogRecord> records)
+          final String originPrefix, final long ptailOffset, final long limit, final Consumer<LogRecord> records)
           throws IOException {
      getLogs(getLogFiles(), originPrefix, ptailOffset, limit, records);
   }
 
   /**
-   * Returns all logs in order they have been written to the log files.
+   * Returns all logs in order they have been written to the log files, and reverse order of the input files.
+   *
    * @param logFiles
    * @param originPrefix
    * @param ptailOffset
@@ -279,9 +281,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
    * @throws IOException
    */
   private void getLogs(final List<Path> logFiles,
-          final String originPrefix, final long ptailOffset, final int limit, final Consumer<LogRecord> records)
+          final String originPrefix, final long ptailOffset, final long limit, final Consumer<LogRecord> records)
           throws IOException {
-    List<LogRecord> result = Collections.EMPTY_LIST;
     // try to get from previous file.
     if (logFiles.isEmpty()) {
       return;
@@ -292,7 +293,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     int i = logFiles.size() - 1;
     long tailOffset = ptailOffset;
     SpecificDatumReader<LogRecord> reader = new SpecificDatumReader<>(LogRecord.class);
-    while (i >= 0 && result.size() < limit) {
+    long nrAccepted = 0;
+    while (i >= 0 && nrAccepted < limit) {
       Path p = logFiles.get(i);
       long nrRecs = getNrLogs(p);
       nrRecs -= tailOffset;
@@ -301,7 +303,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }  else {
         tailOffset = 0;
       }
-      int left = limit - result.size();
+      long left = limit - nrAccepted;
       long toSkip = nrRecs - left;
       try (DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader)) {
         if (toSkip > 0) {
@@ -316,6 +318,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
             log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
           }
           records.accept(log);
+          nrAccepted++;
           nrRecs--;
           j++;
         }
@@ -325,7 +328,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public void getFilteredLogs(final String originPrefix, final long ptailOffset,
-          final int limit, final Predicate<LogRecord> pred,
+          final long limit, final Predicate<LogRecord> pred,
           final Consumer<LogRecord> records)
           throws IOException {
     List<Path> logFiles = getLogFiles();

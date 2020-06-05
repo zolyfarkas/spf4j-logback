@@ -47,6 +47,10 @@ final class TestLogEvent implements ILoggingEvent {
     this(Instant.now());
   }
 
+  TestLogEvent(final String msg) {
+    this(Instant.now(), msg);
+  }
+
   TestLogEvent(final Instant instant) {
     this(instant, "message " + CNT.getAndIncrement(), Arrays.EMPTY_OBJ_ARRAY);
   }
