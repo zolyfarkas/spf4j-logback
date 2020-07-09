@@ -32,6 +32,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -85,6 +86,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   private int maxNrFiles;
 
+  private int appendRetries;
+
   private long maxLogsBytes;
 
   private CompletableFuture<Void> cleanup;
@@ -102,6 +105,18 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     this.maxNrFiles = 15;
     this.maxLogsBytes = 1024 * 1024 * 100;
     this.cleanup = CompletableFuture.completedFuture(null);
+    this.appendRetries = 5;
+  }
+
+  /**
+   * When serializing a object a ConcurrentModificationEnception can be thrown if this is
+   * mutated by another thread. (async logging)
+   * this can re-tried, a few times, and hopefully log this successfully.
+   *
+   * @param appendRetries
+   */
+  public void setAppendRetries(final int appendRetries) {
+    this.appendRetries = appendRetries;
   }
 
   public void setMaxNrFiles(final int maxNrFiles) {
@@ -524,7 +539,21 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         return;
       }
       try {
-        this.writer.append(record);
+        int tries = 0;
+        do {
+          try {
+            this.writer.append(record);
+            break;
+          } catch (ConcurrentModificationException ex) {
+            // this is just a hack to work-arround when a mutable object is being logged.
+            tries++;
+            if (tries >= this.appendRetries) {
+              org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
+              this.addError("Unable to write log " + record, ex);
+              break;
+            }
+          }
+        } while (true);
       } catch (IOException | RuntimeException ex) {
         org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
         this.addError("Unable to write log " + record, ex);
