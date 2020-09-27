@@ -15,10 +15,9 @@
     <destinationPath>${logFolder}</destinationPath>
   </appender>
 
-  <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+  <appender name="ASYNC_FILE" class="org.spf4j.log.Spf4jAsyncAppender">
     <appender-ref ref="default"/>
     <queueSize>256</queueSize>
-    <maxFlushTime>1000</maxFlushTime>
   </appender>
 
   <logger name="org.spf4j" level="info" additivity="false">

@@ -55,6 +55,8 @@ import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.DefaultExecutor;
 import org.spf4j.jmx.JmxExport;
 import org.spf4j.jmx.Registry;
+import org.spf4j.perf.CloseableMeasurementRecorderSource;
+import org.spf4j.perf.impl.RecorderFactory;
 
 /**
  * an Appender that will log into binary avro data files.
@@ -65,6 +67,16 @@ import org.spf4j.jmx.Registry;
  */
 @SuppressFBWarnings("PATH_TRAVERSAL_IN") // Paths should be comming from trusted sources.
 public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
+
+  private static final CloseableMeasurementRecorderSource
+          PERSISTED = RecorderFactory.createScalableSimpleCountingRecorderSource(
+                  "AvroDataFileAppender_PersistSuccess",
+                  "count", 60000);
+
+  private static final CloseableMeasurementRecorderSource
+          PERSIST_FAILED = RecorderFactory.createScalableSimpleCountingRecorderSource(
+                  "AvroDataFileAppender_PersistFailure",
+                  "count", 60000);
 
   private static final ZoneId ZULU = ZoneId.of("Z");
 
@@ -554,7 +566,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
             }
           }
         } while (true);
+        PERSISTED.getRecorder(eventObject.getLevel()).increment();
       } catch (IOException | RuntimeException ex) {
+        PERSIST_FAILED.getRecorder(eventObject.getLevel()).increment();
         org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
         this.addError("Unable to write log " + record, ex);
       }
