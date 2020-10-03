@@ -36,8 +36,6 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import com.google.common.collect.Maps;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,6 +56,7 @@ import org.spf4j.base.avro.StackSampleElement;
 import org.spf4j.base.avro.StackTraceElement;
 import org.spf4j.base.avro.Throwable;
 import org.spf4j.ds.IdentityHashSet;
+import org.spf4j.io.ObjectAppenderSupplier;
 
 /**
  * @author Zoltan Farkas
@@ -189,12 +188,21 @@ public final class Converters {
       arguments = Arrays.EMPTY_OBJ_ARRAY;
     }
     String fmt = event.getMessage();
-    StringBuilder msgBuilder = new StringBuilder(fmt.length() + 8);
-    int index;
-    try {
-      index = Slf4jMessageFormatter.format(msgBuilder, fmt, arguments);
-    } catch (IOException ex) {
-      throw new UncheckedIOException(ex);
+    int index = Slf4jMessageFormatter.getFormatParameterNumber(fmt);
+    List<String> msgArgs;
+    if (index == 0) {
+      msgArgs = Collections.EMPTY_LIST;
+    } else {
+      String[] ma = new String[index];
+      for (int i = 0; i < index; i++) {
+        Object arg = arguments[i];
+        if (arg == null) {
+            ma[i] = "null";
+        } else {
+          ma[i] = ObjectAppenderSupplier.TO_STRINGER.get(arg.getClass()).toString(arg);
+        }
+      }
+      msgArgs = java.util.Arrays.asList(ma);
     }
     String traceId = "";
     List<StackSampleElement> profiles = Collections.EMPTY_LIST;
@@ -253,9 +261,17 @@ public final class Converters {
         attribs.put(marker.getName(), marker);
       }
     }
+    Map<String, String> mdc = event.getMDCPropertyMap();
+    if (!mdc.isEmpty()) {
+      if (attribs == null) {
+        attribs = (Map) mdc;
+      } else {
+        attribs.putAll(mdc);
+      }
+    }
     return new LogRecord("", traceId, convert(event.getLevel()),
             Instant.ofEpochMilli(event.getTimeStamp()),
-            event.getLoggerName(), event.getThreadName(), msgBuilder.toString(), xArgs,
+            event.getLoggerName(), event.getThreadName(), fmt, msgArgs, xArgs,
             attribs == null ? Collections.EMPTY_MAP : attribs,
             extraThrowable == null ? null : convert(extraThrowable), profiles);
   }

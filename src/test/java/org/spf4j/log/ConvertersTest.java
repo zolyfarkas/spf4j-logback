@@ -46,12 +46,12 @@ public class ConvertersTest {
       msgBuilder.append('a');
     }
     LogRecord rec = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", msgBuilder.toString(),
-            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST, Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null, Collections.EMPTY_LIST);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
     LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec), avroLogbackEncoder.getCharset()));
     LogRecord rec2 = new LogRecord("", "", LogLevel.DEBUG, Instant.now(), "test", "text", "someMessage",
-            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST, Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", ""),
             org.spf4j.base.avro.Converters.convert(new RuntimeException(new IOException("bla"))),
             Collections.EMPTY_LIST);
@@ -65,7 +65,7 @@ public class ConvertersTest {
   @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION") // on purpose
   public void testSerErrorr() throws IOException {
     LogRecord rec = new LogRecord("", "bla", null, Instant.now(), "test", "text", "abc",
-            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST, Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null, Collections.EMPTY_LIST);
     AvroLogbackEncoder avroLogbackEncoder = new AvroLogbackEncoder();
     try {
@@ -75,7 +75,7 @@ public class ConvertersTest {
       // expected
     }
     LogRecord rec2 = new LogRecord("", "bla", LogLevel.WARN, Instant.now(), "test", "text", "abc",
-            Collections.EMPTY_LIST,
+            Collections.EMPTY_LIST, Collections.EMPTY_LIST,
             ImmutableMap.of("a", "b", "c", "d"), null, Collections.EMPTY_LIST);
     avroLogbackEncoder.initEncoder();
     LOG.debug(new String(avroLogbackEncoder.serializeAvro(rec2), avroLogbackEncoder.getCharset()));
