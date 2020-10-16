@@ -97,7 +97,7 @@ public class ConvertersTest {
     ex.addSuppressed(ex2);
     LogRecord lr = Converters.convert(new TestLogEvent(Instant.now(), "Test {}", ThrowableProxy.create(ex), "arg",
                             ThrowableProxy.create(ex2)));
-    Assert.assertEquals("Test arg", lr.getMsg());
+    Assert.assertEquals("Test {}", lr.getMsg());
     LOG.debug("log message", lr);
   }
 
