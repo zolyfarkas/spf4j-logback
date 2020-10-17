@@ -30,6 +30,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -128,33 +129,28 @@ public class AvroDataFileAppenderTest {
     List<Path> logFiles = appender.getLogFiles();
     LOG.debug("All Log files: {}", logFiles);
     Assert.assertEquals(4, logFiles.size());
+    // m4, m3, m2, m1, m5
+    Assert.assertEquals(5, appender.getNrLogs());
     int i = 0;
     List<String> logs = new ArrayList<>();
-    appender.getLogs("local", 0, 100, (l) -> logs.add(l.getMsg()));
-    Assert.assertEquals(Arrays.asList("m1", "m5", "m2", "m3", "m4"), logs);
+    appender.getLogs("local", 100, 100, (l) -> logs.add(l.getMsg()));
+    Assert.assertEquals(Arrays.asList("m4", "m3",  "m2", "m1", "m5"), logs);
     i = 0;
     logs.clear();
 
     appender.getLogs("local", 1, 100, (l) -> logs.add(l.getMsg()));
-    Assert.assertEquals(Arrays.asList("m1", "m2", "m3", "m4"), logs);
+    Assert.assertEquals(Collections.singletonList("m5"), logs);
     logs.clear();
-    
+
     appender.getLogs("local", 2, 100, (l) -> logs.add(l.getMsg()));
-    for (String rec : logs) {
-      LOG.debug("retrieved2", rec);
-      i++;
-    }
-    Assert.assertEquals(3, i);
-    i = 0;
+    Assert.assertEquals(Arrays.asList("m1", "m5"), logs);
+
     logs.clear();
     appender.getLogs("local", 3, 100, (l) -> logs.add(l.getMsg()));
-    for (String rec : logs) {
-      LOG.debug("retrieved3", rec);
-      i++;
-    }
-    Assert.assertEquals(2, i);
+    Assert.assertEquals(Arrays.asList("m2", "m1", "m5"), logs);
+
     List<LogRecord> filteredLogs =  new ArrayList<>();
-    appender.getFilteredLogs("test", 0, 10,
+    appender.getFilteredLogs("test", 10, 10,
             Program.compilePredicate("log.msg == 'm5'", "log"), filteredLogs::add);
     LOG.debug("filtered logs", filteredLogs);
     Assert.assertEquals(1, filteredLogs.size());
@@ -244,6 +240,16 @@ public class AvroDataFileAppenderTest {
     }
     submit.cancel(true);
     appender.stop();
+  }
+
+  @Test
+  @Ignore
+  @SuppressFBWarnings
+  public void testLoadAProdFile() throws IOException {
+    AvroDataFileAppender app = new AvroDataFileAppender();
+    app.setDestinationPath("/Users/zoly/Downloads");
+    app.setFileNameBase("jaxrs-spf4j-demo-77bd8694b8-j469s");
+    app.getLogs("bla", 0, Long.MAX_VALUE, (x) -> LOG.debug("log", x));
   }
 
 }

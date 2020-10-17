@@ -25,10 +25,12 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -48,6 +50,7 @@ import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.file.FileReader;
+import org.apache.avro.io.DatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.spf4j.base.AbstractRunnable;
@@ -86,7 +89,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   private DataFileWriter<LogRecord> writer;
 
-  private LocalDate fileDate;
+  private long fileDateStart;
+
+  private long fileDateEnd;
 
   private Path currentFile;
 
@@ -283,6 +288,16 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     return getNrLogs(getCurrentFile());
   }
 
+  @JmxExport
+  public long getNrLogs() throws IOException {
+    long total = 0L;
+    for (Path file : getLogFiles()) {
+      total += getNrLogs(file);
+    }
+    return total;
+  }
+
+
   public FileReader<LogRecord> getCurrentLogs() throws IOException {
     if (isStarted()) {
       flush();
@@ -301,7 +316,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
    *
    * @param logFiles
    * @param originPrefix
-   * @param ptailOffset
+   * @param ptailOffset offset relative to the tail of the logs.
    * @param limit
    * @return
    * @throws IOException
@@ -318,40 +333,81 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
     int i = logFiles.size() - 1;
     long tailOffset = ptailOffset;
-    SpecificDatumReader<LogRecord> reader = new SpecificDatumReader<>(LogRecord.class);
+    ArrayDeque<LogFileRange> scanRange = new ArrayDeque<>();
     long nrAccepted = 0;
     while (i >= 0 && nrAccepted < limit) {
       Path p = logFiles.get(i);
       long nrRecs = getNrLogs(p);
-      nrRecs -= tailOffset;
-      if (nrRecs <= 0) {
-        tailOffset = -nrRecs;
+      long toSkip = nrRecs - tailOffset;
+      if (toSkip <= 0) {
+        tailOffset = -toSkip;
+        toSkip = 0;
       }  else {
         tailOffset = 0;
       }
-      long left = limit - nrAccepted;
-      long toSkip = nrRecs - left;
-      try (DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader)) {
-        if (toSkip > 0) {
-          skip(stream, toSkip);
-        } else {
-          toSkip = 0;
-        }
-        int j = 0;
-        while (nrRecs > 0 && j < left) {
-          LogRecord log = stream.next();
-          if (originPrefix != null) {
-            log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
-          }
-          records.accept(log);
-          nrAccepted++;
-          nrRecs--;
-          j++;
-        }
+      long left = Math.min(limit - nrAccepted, nrRecs - toSkip);
+      if (left > 0) {
+        scanRange.addFirst(new LogFileRange(p, toSkip, left));
       }
+      nrAccepted += left;
       i--;
     }
+    if (scanRange.isEmpty()) {
+      return;
+    }
+    SpecificDatumReader<LogRecord> reader = new SpecificDatumReader<>(LogRecord.class);
+    for (LogFileRange fRange : scanRange) {
+      readLogs(fRange, reader, originPrefix, records);
+    }
   }
+
+  public void readLogs(final LogFileRange fileRange, final DatumReader<LogRecord> reader,
+          final String originPrefix, final Consumer<LogRecord> records) throws IOException {
+    Path p = fileRange.getFilePath();
+    long toSkip = fileRange.getFrom();
+    long left = fileRange.getNrLogs();
+    try (DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader)) {
+      if (toSkip > 0) {
+        skip(stream, toSkip);
+      }
+      long j = 0L;
+      while (j < left) {
+        LogRecord log = stream.next();
+        if (originPrefix != null) {
+          log.setOrigin(originPrefix + ':' + p + ':' + (toSkip++));
+        }
+        records.accept(log);
+        j++;
+      }
+    }
+  }
+
+  private static class LogFileRange {
+    private final Path filePath;
+    private final long from;
+    private final long nrLogs;
+
+    LogFileRange(final Path filePath, final long from, final long nrLogs) {
+      this.filePath = filePath;
+      this.from = from;
+      this.nrLogs = nrLogs;
+    }
+
+    public Path getFilePath() {
+      return filePath;
+    }
+
+    public long getFrom() {
+      return from;
+    }
+
+    public long getNrLogs() {
+      return nrLogs;
+    }
+
+
+  }
+
 
   public void getFilteredLogs(final String originPrefix, final long ptailOffset,
           final long limit, final Predicate<LogRecord> pred,
@@ -474,9 +530,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   private void ensurePartition(final Instant instant) throws IOException, InterruptedException {
-    ZonedDateTime zdt = instant.atZone(zoneId);
-    LocalDate target = zdt.toLocalDate();
-    if (target.equals(fileDate)) {
+    long secondsFromEpoch = instant.getEpochSecond();
+    if (this.fileDateStart <= secondsFromEpoch && secondsFromEpoch < this.fileDateEnd) {
       return;
     } else {
       if (writer != null) {
@@ -492,12 +547,17 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
           cleanup();
         }
       }, DefaultExecutor.INSTANCE);
-      fileDate = target;
+      ZonedDateTime zdt = instant.atZone(zoneId);
+      LocalDate date = zdt.toLocalDate();
+      this.fileDateStart = date.atStartOfDay(zoneId).toInstant().getEpochSecond();
+      this.fileDateEnd = this.fileDateStart + Duration.ofDays(1).getSeconds();
       writer = new DataFileWriter<>(new SpecificDatumWriter<>(LogRecord.class));
       if (codecFact != null) {
         writer.setCodec(codecFact);
       }
-      String fileName = fileNameBase + '_' + target + ".logs.avro";
+      String dateStr = date.toString();
+      writer.setMeta("date", dateStr);
+      String fileName = fileNameBase + '_' + dateStr + ".logs.avro";
       currentFile = destinationPath.resolve(fileName);
       if (Files.isWritable(currentFile) && isValidFile(currentFile)) {
         writer = writer.appendTo(currentFile.toFile());
@@ -578,7 +638,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   @Override
   public String toString() {
     return "AvroDataFileAppender{" + "fileNameBase=" + fileNameBase
-            + ", writer=" + writer + ", fileDate=" + fileDate + ", currentFile="
+            + ", writer=" + writer + ", currentFile="
             + currentFile + ", destinationPath=" + destinationPath + ", zoneId=" + zoneId + '}';
   }
 
