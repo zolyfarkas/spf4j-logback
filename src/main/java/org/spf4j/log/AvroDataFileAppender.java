@@ -361,12 +361,12 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     }
   }
 
-  public void readLogs(final LogFileRange fileRange, final DatumReader<LogRecord> reader,
+  public static void readLogs(final LogFileRange fileRange, final DatumReader<LogRecord> reader,
           final String originPrefix, final Consumer<LogRecord> records) throws IOException {
     Path p = fileRange.getFilePath();
     long toSkip = fileRange.getFrom();
     long left = fileRange.getNrLogs();
-    try (DataFileStream<LogRecord> stream = new DataFileStream<LogRecord>(Files.newInputStream(p), reader)) {
+    try (DataFileStream<LogRecord> stream = new DataFileStream<>(Files.newInputStream(p), reader)) {
       if (toSkip > 0) {
         skip(stream, toSkip);
       }
