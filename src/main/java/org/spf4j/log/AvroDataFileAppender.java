@@ -114,8 +114,8 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     fileNameBase = org.spf4j.base.Runtime.PROCESS_NAME;
     setName("avroLogAppender");
     try {
-      Class.forName("org.xerial.snappy.Snappy");
-      codecFact = CodecFactory.snappyCodec();
+      Class.forName("com.github.luben.zstd.Zstd");
+      codecFact = CodecFactory.zstandardCodec(-2, true);
     } catch (ClassNotFoundException ex) {
      codecFact = null;
     }
@@ -165,6 +165,9 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         return;
       case "deflate":
         codecFact = CodecFactory.deflateCodec(1);
+        return;
+      case "zstandard":
+        codecFact = CodecFactory.zstandardCodec(-2, true);
         return;
       default:
         throw new UnsupportedOperationException("Unsupported codec: " + codec);
