@@ -73,12 +73,12 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   private static final CloseableMeasurementRecorderSource
           PERSISTED = RecorderFactory.createScalableSimpleCountingRecorderSource(
-                  "AvroDataFileAppender_PersistSuccess",
+                  "logging.avro_store_success",
                   "count", 60000);
 
   private static final CloseableMeasurementRecorderSource
           PERSIST_FAILED = RecorderFactory.createScalableSimpleCountingRecorderSource(
-                  "AvroDataFileAppender_PersistFailure",
+                  "logging.avro_store_failure",
                   "count", 60000);
 
   private static final ZoneId ZULU = ZoneId.of("Z");
@@ -571,15 +571,14 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
   }
 
   public static boolean isValidFile(final Path file) throws IOException {
-    boolean valid  = true;
     try {
       getNrLogs(file);
+      return true;
     } catch (AvroRuntimeException ex) {
-      org.spf4j.base.Runtime.error("Invalid log file " + file, ex);
+      org.spf4j.base.Runtime.error("Invalid log file " + file + ", adding extension .bad", ex);
       rename(file);
-      valid =  false;
+      return false;
     }
-    return valid;
   }
 
   private static void rename(final Path file) throws IOException {

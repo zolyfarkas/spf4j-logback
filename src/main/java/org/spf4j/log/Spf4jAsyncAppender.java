@@ -132,8 +132,10 @@ public class Spf4jAsyncAppender extends UnsynchronizedAppenderBase<ILoggingEvent
     }
     addInfo("Setting discardingThreshold to " + discardingThreshold);
 
-    droppedRec = RecorderFactory.createScalableSimpleCountingRecorderSource(name + "_logs_dropped", "count", 60000);
-    queuedRec = RecorderFactory.createScalableSimpleCountingRecorderSource(name + "_logs_queued", "count", 60000);
+    droppedRec = RecorderFactory.createScalableSimpleCountingRecorderSource("logging.appender."
+            + name + ".logs_dropped", "Number of logs discarded due to queue full", "count", 60000);
+    queuedRec = RecorderFactory.createScalableSimpleCountingRecorderSource("logging.appender."
+            + name + ".logs_queued", "Number of logs enqueued by appender", "count", 60000);
     worker = new Worker();
     worker.setDaemon(true);
     worker.setName("AsyncAppender-Worker-" + name);
