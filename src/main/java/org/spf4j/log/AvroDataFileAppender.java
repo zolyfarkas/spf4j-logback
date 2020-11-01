@@ -116,7 +116,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     try {
       Class.forName("com.github.luben.zstd.Zstd");
       codecFact = CodecFactory.zstandardCodec(-2, true);
-    } catch (ClassNotFoundException ex) {
+    } catch (ClassNotFoundException | UnsatisfiedLinkError ex) {
      codecFact = null;
     }
     this.maxNrFiles = 15;
