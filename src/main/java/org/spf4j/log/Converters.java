@@ -191,7 +191,7 @@ public final class Converters {
     int index = Slf4jMessageFormatter.getFormatParameterNumber(fmt);
     List<String> msgArgs;
     if (index == 0) {
-      msgArgs = Collections.EMPTY_LIST;
+      msgArgs = Collections.emptyList();
     } else {
       String[] ma = new String[index];
       for (int i = 0; i < index; i++) {
@@ -205,11 +205,11 @@ public final class Converters {
       msgArgs = java.util.Arrays.asList(ma);
     }
     String traceId = "";
-    List<StackSampleElement> profiles = Collections.EMPTY_LIST;
+    List<StackSampleElement> profiles = Collections.emptyList();
     Map<String, Object> attribs = null;
     List<Object> xArgs;
     if (index >= arguments.length) {
-      xArgs = Collections.EMPTY_LIST;
+      xArgs = Collections.emptyList();
     } else {
       int nrXArgs = 0;
       int nrAttribs = 0;
@@ -272,7 +272,7 @@ public final class Converters {
     return new LogRecord("", traceId, convert(event.getLevel()),
             Instant.ofEpochMilli(event.getTimeStamp()),
             event.getLoggerName(), event.getThreadName(), fmt, msgArgs, xArgs,
-            attribs == null ? Collections.EMPTY_MAP : attribs,
+            attribs == null ? Collections.emptyMap() : attribs,
             extraThrowable == null ? null : convert(extraThrowable), profiles);
   }
 
