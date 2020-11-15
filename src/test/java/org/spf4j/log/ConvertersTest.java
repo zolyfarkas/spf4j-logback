@@ -96,8 +96,9 @@ public class ConvertersTest {
     RuntimeException ex2 = new RuntimeException("test2", ex);
     ex.addSuppressed(ex2);
     LogRecord lr = Converters.convert(new TestLogEvent(Instant.now(), "Test {}", ThrowableProxy.create(ex), "arg",
-                            ThrowableProxy.create(ex2)));
+                            "arg2", ThrowableProxy.create(ex2)));
     Assert.assertEquals("Test {}", lr.getMsg());
+    Assert.assertEquals(1, lr.getMsgArgs().size());
     LOG.debug("log message", lr);
   }
 
