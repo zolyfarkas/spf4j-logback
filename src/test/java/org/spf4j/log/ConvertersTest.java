@@ -97,9 +97,22 @@ public class ConvertersTest {
     ex.addSuppressed(ex2);
     LogRecord lr = Converters.convert(new TestLogEvent(Instant.now(), "Test {}", ThrowableProxy.create(ex), "arg",
                             "arg2", ThrowableProxy.create(ex2)));
+    LOG.debug("log message", lr);
     Assert.assertEquals("Test {}", lr.getMsg());
     Assert.assertEquals(1, lr.getMsgArgs().size());
+  }
+
+  @Test
+  public void testConverter2() {
+    RuntimeException ex = new RuntimeException("test");
+    RuntimeException ex2 = new RuntimeException("test2", ex);
+    ex.addSuppressed(ex2);
+    LogRecord lr = Converters.convert(new TestLogEvent(Instant.now(), "Test", ThrowableProxy.create(ex), "arg",
+                            "arg2", ThrowableProxy.create(ex2)));
     LOG.debug("log message", lr);
+    Assert.assertEquals("Test", lr.getMsg());
+    Assert.assertEquals(0, lr.getMsgArgs().size());
+    Assert.assertEquals(2, lr.getXtra().size());
   }
 
 

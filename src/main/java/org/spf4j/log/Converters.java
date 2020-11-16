@@ -177,9 +177,11 @@ public final class Converters {
     }
   }
 
-  @SuppressFBWarnings({ "WOC_WRITE_ONLY_COLLECTION_LOCAL", "ITC_INHERITANCE_TYPE_CHECKING" })
+  @SuppressFBWarnings({ "WOC_WRITE_ONLY_COLLECTION_LOCAL", "ITC_INHERITANCE_TYPE_CHECKING",
+                      "CC_CYCLOMATIC_COMPLEXITY"})
   // WOC_WRITE_ONLY_COLLECTION_LOCAL a false positive.
-  // ITC_INHERITANCE_TYPE_CHECKING not other goos way that  I know of...
+  // ITC_INHERITANCE_TYPE_CHECKING not other good way that  I know of...
+  // CC_CYCLOMATIC_COMPLEXITY is a walid concern, will need to revisit this.
   public static LogRecord convert(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
     Marker marker = event.getMarker();
@@ -235,6 +237,13 @@ public final class Converters {
             extraThrowable = ThrowableProxy.addSuppressed(extraThrowable,
                     ThrowableProxy.create((java.lang.Throwable) obj));
           }
+        } else if (obj instanceof IThrowableProxy) {
+           if (extraThrowable == null) {
+            extraThrowable = (IThrowableProxy) obj;
+          } else {
+            extraThrowable = ThrowableProxy.addSuppressed(extraThrowable,
+                    (ThrowableProxy) obj);
+          }
         } else {
           nrXArgs++;
         }
@@ -253,7 +262,7 @@ public final class Converters {
                   && !LogAttribute.PROFILE_SAMPLES_ATTR_NAME.equals(name)) {
             attribs.put(name, ((LogAttribute) obj).getValue());
           }
-        } else if (!(obj instanceof java.lang.Throwable)) {
+        } else if (!(obj instanceof java.lang.Throwable || obj instanceof IThrowableProxy)) {
           xArgs.add(obj);
         }
       }
