@@ -190,6 +190,7 @@ public class Spf4jAsyncAppender extends UnsynchronizedAppenderBase<ILoggingEvent
       }
 
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       int remaining = blockingQueue.size();
       addError("Failed to join worker thread. " + remaining + " queued events may be discarded.", e);
     } finally {
