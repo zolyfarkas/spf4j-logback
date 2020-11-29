@@ -199,7 +199,7 @@ public final class Converters {
       for (int i = 0; i < index; i++) {
         Object arg = arguments[i];
         if (arg == null) {
-            ma[i] = "null";
+          ma[i] = "null";
         } else {
           ma[i] = ObjectAppenderSupplier.TO_STRINGER.get(arg.getClass()).toString(arg);
         }

@@ -614,7 +614,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       try {
         int tries = 0;
-        do {
+        while (true) {
           try {
             this.writer.append(record);
             break;
@@ -627,7 +627,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
               break;
             }
           }
-        } while (true);
+        }
         PERSISTED.getRecorder(eventObject.getLevel()).increment();
       } catch (IOException | RuntimeException ex) {
         PERSIST_FAILED.getRecorder(eventObject.getLevel()).increment();

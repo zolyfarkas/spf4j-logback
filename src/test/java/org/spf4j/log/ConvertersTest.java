@@ -22,6 +22,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
@@ -113,6 +114,17 @@ public class ConvertersTest {
     Assert.assertEquals("Test", lr.getMsg());
     Assert.assertEquals(0, lr.getMsgArgs().size());
     Assert.assertEquals(2, lr.getXtra().size());
+  }
+
+  @Test
+  public void testConverter3() {
+    LogRecord lr = Converters.convert(new TestLogEvent(Instant.now(), "Test {} {}", "arg", null));
+    LOG.debug("log message", lr);
+    Assert.assertEquals("Test {} {}", lr.getMsg());
+    List<String> msgArgs = lr.getMsgArgs();
+    Assert.assertEquals(2, msgArgs.size());
+    Assert.assertEquals("null", msgArgs.get(1));
+    Assert.assertEquals(0, lr.getXtra().size());
   }
 
 
