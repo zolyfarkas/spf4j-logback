@@ -115,7 +115,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     setName("avroLogAppender");
     try {
       Class.forName("com.github.luben.zstd.Zstd");
-      codecFact = CodecFactory.zstandardCodec(-2, true);
+      codecFact = new ZstandardCodec.Option(-2, true);
     } catch (ClassNotFoundException | UnsatisfiedLinkError ex) {
      codecFact = null;
     }
@@ -483,7 +483,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
 
   public static long getNrLogs(final Path file) throws IOException {
     SpecificDatumReader<LogRecord> reader = new SpecificDatumReader<>(LogRecord.class);
-    try (DataFileStream<LogRecord> streamReader = new DataFileStream<LogRecord>(Files.newInputStream(file), reader)) {
+    try (DataFileStream<LogRecord> streamReader = new DataFileStream<>(Files.newInputStream(file), reader)) {
       long count = 0L;
       while (streamReader.hasNext()) {
         count += streamReader.getBlockCount();
