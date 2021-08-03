@@ -107,11 +107,6 @@
       <artifactId>zstd-jni</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-compress</artifactId>
-      <version>1.21</version>
-    </dependency>
-    <dependency>
       <groupId>org.spf4j.avro</groupId>
       <artifactId>core-schema</artifactId>
     </dependency>

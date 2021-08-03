@@ -29,8 +29,8 @@ import org.apache.avro.file.Codec;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileConstants;
 
-import org.apache.commons.compress.utils.IOUtils;
 import org.spf4j.io.ByteArrayBuilder;
+import org.spf4j.io.Streams;
 import org.spf4j.recyclable.impl.ArraySuppliers;
 
 
@@ -89,7 +89,7 @@ public final class ZstandardCodec extends Codec {
     ByteArrayBuilder baos = getOutputBuffer(remaining * 2);
     InputStream bytesIn = new ByteArrayInputStream(compressedData.array(), computeOffset(compressedData), remaining);
     try (InputStream ios = ZstandardLoader.input(bytesIn)) {
-      IOUtils.copy(ios, baos);
+      Streams.copy(ios, baos);
     }
     return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
   }
