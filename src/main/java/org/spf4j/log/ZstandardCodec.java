@@ -20,7 +20,6 @@ package org.spf4j.log;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -78,16 +77,15 @@ public final class ZstandardCodec extends Codec {
     ByteArrayBuilder baos = getOutputBuffer(remaining - remaining / 5);
     try (OutputStream outputStream = ZstandardLoader.output(baos, compressionLevel, useChecksum)) {
       outputStream.write(data.array(), computeOffset(data), remaining);
+      return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
     }
-    return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
   }
 
   @Override
   public ByteBuffer decompress(final ByteBuffer compressedData) throws IOException {
     int remaining = compressedData.remaining();
     ByteArrayBuilder baos = getOutputBuffer(remaining * 2);
-    InputStream bytesIn = new ByteArrayInputStream(compressedData.array(), computeOffset(compressedData), remaining);
-    baos.readFrom(bytesIn);
+    baos.write(compressedData.array(), computeOffset(compressedData), remaining);
     return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
   }
 
