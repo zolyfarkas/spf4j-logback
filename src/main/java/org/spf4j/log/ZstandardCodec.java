@@ -20,6 +20,7 @@ package org.spf4j.log;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,6 +30,7 @@ import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileConstants;
 
 import org.spf4j.io.ByteArrayBuilder;
+import org.spf4j.io.NoCloseOutputStream;
 import org.spf4j.recyclable.impl.ArraySuppliers;
 
 
@@ -75,17 +77,22 @@ public final class ZstandardCodec extends Codec {
   public ByteBuffer compress(final ByteBuffer data) throws IOException {
     int remaining = data.remaining();
     ByteArrayBuilder baos = getOutputBuffer(remaining - remaining / 5);
-    try (OutputStream outputStream = ZstandardLoader.output(baos, compressionLevel, useChecksum)) {
+    try (OutputStream outputStream = ZstandardLoader.output(new NoCloseOutputStream(baos),
+            compressionLevel, useChecksum)) {
       outputStream.write(data.array(), computeOffset(data), remaining);
-      return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
     }
+    return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
   }
 
   @Override
   public ByteBuffer decompress(final ByteBuffer compressedData) throws IOException {
     int remaining = compressedData.remaining();
     ByteArrayBuilder baos = getOutputBuffer(remaining * 2);
-    baos.write(compressedData.array(), computeOffset(compressedData), remaining);
+    InputStream bytesIn = new ByteArrayInputStream(compressedData.array(), computeOffset(compressedData),
+        compressedData.remaining());
+    try (InputStream ios = ZstandardLoader.input(bytesIn)) {
+      baos.readFrom(ios);
+    }
     return ByteBuffer.wrap(baos.getBuffer(), 0, baos.size());
   }
 
