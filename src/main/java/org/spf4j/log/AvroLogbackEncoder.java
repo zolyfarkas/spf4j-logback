@@ -19,6 +19,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.encoder.EncoderBase;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -81,6 +82,7 @@ public final class AvroLogbackEncoder extends EncoderBase<ILoggingEvent> {
     this.charset = Charset.forName(charsetName);
   }
 
+  @SuppressFBWarnings("EI_EXPOSE_REP")
   public Charset getCharset() {
     return charset;
   }
