@@ -89,7 +89,7 @@ public final class ZstandardCodec extends Codec {
     int remaining = compressedData.remaining();
     ByteArrayBuilder baos = getOutputBuffer(remaining * 2);
     InputStream bytesIn = new ByteArrayInputStream(compressedData.array(), computeOffset(compressedData),
-        compressedData.remaining());
+        remaining);
     try (InputStream ios = ZstandardLoader.input(bytesIn)) {
       baos.readFrom(ios);
     }
