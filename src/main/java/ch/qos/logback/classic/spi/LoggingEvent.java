@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.slf4j.MDC;
 import org.slf4j.Marker;
-import org.slf4j.helpers.MessageFormatter;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -31,6 +30,7 @@ import ch.qos.logback.classic.util.LogbackMDCAdapter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import org.slf4j.spi.MDCAdapter;
+import org.spf4j.base.Slf4jMessageFormatter;
 
 /**
  * The internal representation of logging events. When an affirmative decision
@@ -208,7 +208,6 @@ public class LoggingEvent implements ILoggingEvent {
      * data. It is the responsibility of the caller to extract caller information.
      */
     public void prepareForDeferredProcessing() {
-        this.getFormattedMessage();
         this.getThreadName();
         // fixes http://jira.qos.ch/browse/LBCLASSIC-104
         this.getMDCPropertyMap();
@@ -295,7 +294,7 @@ public class LoggingEvent implements ILoggingEvent {
             return formattedMessage;
         }
         if (argumentArray != null) {
-            formattedMessage = MessageFormatter.arrayFormat(message, argumentArray).getMessage();
+            formattedMessage = Slf4jMessageFormatter.toString(message, argumentArray);
         } else {
             formattedMessage = message;
         }
