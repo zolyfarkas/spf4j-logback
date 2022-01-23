@@ -201,7 +201,7 @@ public final class Converters {
         if (arg == null) {
           ma[i] = "null";
         } else {
-          ma[i] = ObjectAppenderSupplier.TO_STRINGER.get(arg.getClass()).toString(arg);
+          ma[i] = ObjectAppenderSupplier.getDefaultToStringAppenderSupplier().get(arg.getClass()).toString(arg);
         }
       }
       msgArgs = java.util.Arrays.asList(ma);
