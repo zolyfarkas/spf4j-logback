@@ -426,10 +426,16 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     File tmp = writeResultSet(logFiles, originPrefix, pred);
     try {
        getLogs(Collections.singletonList(tmp.toPath()), null, ptailOffset, limit, records);
-    } finally {
+    } catch (IOException | RuntimeException ex) {
       if (!tmp.delete()) {
-        addError("Unable to delete temp file " + tmp);
+        IOException ioEx = new IOException("Cannot delete " + tmp);
+        ioEx.addSuppressed(ex);
+        throw ioEx;
       }
+      throw ex;
+    }
+    if (!tmp.delete()) {
+      throw new IOException("Cannot delete " + tmp);
     }
   }
 
@@ -443,14 +449,15 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       }
       wr.create(LogRecord.getClassSchema(), tmp);
       for (Path p : logFiles) {
-        FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(),
-                new SpecificDatumReader<>(LogRecord.class));
-        int loc = 0;
-        while (reader.hasNext()) {
-          LogRecord log = reader.next();
-          log.setOrigin(originPrefix + ':' + p + ':' + (loc++));
-          if (pred.test(log)) {
-            wr.append(log);
+        try (FileReader<LogRecord> reader = DataFileReader.openReader(p.toFile(),
+                new SpecificDatumReader<>(LogRecord.class))) {
+          int loc = 0;
+          while (reader.hasNext()) {
+            LogRecord log = reader.next();
+            log.setOrigin(originPrefix + ':' + p + ':' + (loc++));
+            if (pred.test(log)) {
+              wr.append(log);
+            }
           }
         }
       }
