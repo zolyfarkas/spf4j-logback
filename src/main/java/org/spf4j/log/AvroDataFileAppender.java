@@ -54,6 +54,7 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.spf4j.base.AbstractRunnable;
+import org.spf4j.base.ErrLog;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.concurrent.DefaultExecutor;
 import org.spf4j.jmx.JmxExport;
@@ -582,7 +583,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
       getNrLogs(file);
       return true;
     } catch (AvroRuntimeException ex) {
-      org.spf4j.base.Runtime.error("Invalid log file " + file + ", adding extension .bad", ex);
+      ErrLog.error("Invalid log file " + file + ", adding extension .bad", ex);
       rename(file);
       return false;
     }
@@ -608,14 +609,14 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
     Instant ts = record.getTs();
     synchronized (sync) {
       if (!started) {
-        org.spf4j.base.Runtime.error("Appending to closed appender " + record);
+        ErrLog.error("Appending to closed appender " + record);
         this.addError("Appending to closed appender " + record);
         return;
       }
       try {
         ensurePartition(ts);
       } catch (IOException | InterruptedException | RuntimeException ex) {
-        org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
+        ErrLog.error("Failed to serialize " + record, ex);
         this.addError("Unable to setup log file", ex);
         return;
       }
@@ -629,7 +630,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
             // this is just a hack to work-arround when a mutable object is being logged.
             tries++;
             if (tries >= this.appendRetries) {
-              org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
+              ErrLog.error("Failed to serialize " + record, ex);
               this.addError("Unable to write log " + record, ex);
               break;
             }
@@ -638,7 +639,7 @@ public final class AvroDataFileAppender extends UnsynchronizedAppenderBase<ILogg
         PERSISTED.getRecorder(eventObject.getLevel()).increment();
       } catch (IOException | RuntimeException ex) {
         PERSIST_FAILED.getRecorder(eventObject.getLevel()).increment();
-        org.spf4j.base.Runtime.error("Failed to serialize " + record, ex);
+        ErrLog.error("Failed to serialize " + record, ex);
         this.addError("Unable to write log " + record, ex);
       }
     }
