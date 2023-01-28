@@ -46,13 +46,11 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import org.slf4j.Marker;
 import org.spf4j.base.Arrays;
 import org.spf4j.base.Slf4jMessageFormatter;
-import org.spf4j.base.StackSamples;
 import org.spf4j.base.avro.FileLocation;
 import org.spf4j.base.avro.LogLevel;
 import org.spf4j.base.avro.LogRecord;
 import org.spf4j.base.avro.Method;
 import org.spf4j.base.avro.RemoteException;
-import org.spf4j.base.avro.StackSampleElement;
 import org.spf4j.base.avro.StackTraceElement;
 import org.spf4j.base.avro.Throwable;
 import org.spf4j.ds.IdentityHashSet;
@@ -207,7 +205,6 @@ public final class Converters {
       msgArgs = java.util.Arrays.asList(ma);
     }
     String traceId = "";
-    List<StackSampleElement> profiles = Collections.emptyList();
     Map<String, Object> attribs = null;
     List<Object> xArgs;
     if (index >= arguments.length) {
@@ -224,9 +221,6 @@ public final class Converters {
             case LogAttribute.ID_ATTR_NAME:
                 traceId = la.getValue().toString();
               break;
-            case LogAttribute.PROFILE_SAMPLES_ATTR_NAME:
-               profiles = org.spf4j.base.avro.Converters.convert((StackSamples) la.getValue());
-               break;
             default:
               nrAttribs++;
           }
@@ -258,8 +252,7 @@ public final class Converters {
         Object obj = arguments[i];
         if (obj instanceof LogAttribute) {
           String name = ((LogAttribute) obj).getName();
-          if (!LogAttribute.ID_ATTR_NAME.equals(name)
-                  && !LogAttribute.PROFILE_SAMPLES_ATTR_NAME.equals(name)) {
+          if (!LogAttribute.ID_ATTR_NAME.equals(name)) {
             attribs.put(name, ((LogAttribute) obj).getValue());
           }
         } else if (!(obj instanceof java.lang.Throwable || obj instanceof IThrowableProxy)) {
@@ -282,7 +275,7 @@ public final class Converters {
             Instant.ofEpochMilli(event.getTimeStamp()),
             event.getLoggerName(), event.getThreadName(), fmt, msgArgs, xArgs,
             attribs == null ? Collections.emptyMap() : attribs,
-            extraThrowable == null ? null : convert(extraThrowable), profiles);
+            extraThrowable == null ? null : convert(extraThrowable));
   }
 
   @SuppressFBWarnings("WOC_WRITE_ONLY_COLLECTION_LOCAL")
