@@ -20,10 +20,12 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.LoggerContextVO;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 import org.slf4j.Marker;
+import org.slf4j.event.KeyValuePair;
 import org.spf4j.base.Arrays;
 
 final class TestLogEvent implements ILoggingEvent {
@@ -37,6 +39,8 @@ final class TestLogEvent implements ILoggingEvent {
   private final Object[] args;
 
   private final IThrowableProxy throwable;
+  
+  private final long sequence;
 
   public static void resetCounter() {
     CNT.set(0);
@@ -52,7 +56,7 @@ final class TestLogEvent implements ILoggingEvent {
   }
 
   TestLogEvent(final Instant instant) {
-    this(instant, "message " + CNT.getAndIncrement(), Arrays.EMPTY_OBJ_ARRAY);
+    this(instant, "message", Arrays.EMPTY_OBJ_ARRAY);
   }
 
   TestLogEvent(final Instant instant, final String message,  final Object... args) {
@@ -61,9 +65,10 @@ final class TestLogEvent implements ILoggingEvent {
 
   TestLogEvent(final Instant instant, final String message, final IThrowableProxy throwable, final Object... args) {
     this.instant = instant;
-    this.message = message;
     this.args = args;
     this.throwable = throwable;
+    this.sequence = CNT.getAndIncrement();
+    this.message = message;
   }
 
   @Override
@@ -88,7 +93,7 @@ final class TestLogEvent implements ILoggingEvent {
 
   @Override
   public String getFormattedMessage() {
-    throw new UnsupportedOperationException();
+    return message + ' ' + sequence;
   }
 
   @Override
@@ -147,6 +152,26 @@ final class TestLogEvent implements ILoggingEvent {
   public String toString() {
     return "TestLogEvent{" + "instant=" + instant + ", message=" + message
             + ", args=" + java.util.Arrays.toString(args) + '}';
+  }
+
+  @Override
+  public List<Marker> getMarkerList() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public int getNanoseconds() {
+    return instant.getNano();
+  }
+
+  @Override
+  public long getSequenceNumber() {
+    return sequence;
+  }
+
+  @Override
+  public List<KeyValuePair> getKeyValuePairs() {
+    return Collections.emptyList();
   }
 
 }
