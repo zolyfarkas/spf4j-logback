@@ -23,7 +23,7 @@ public final class ThrowableProxy implements IThrowableProxy {
   private int commonFrames;
   private ThrowableProxy cause;
   private ThrowableProxy[] suppressed = NO_SUPPRESSED;
-
+  private boolean isCyclic = false;
   private transient PackagingDataCalculator packagingDataCalculator;
   private boolean calculatedPackageData = false;
 
@@ -35,6 +35,8 @@ public final class ThrowableProxy implements IThrowableProxy {
           final Map<Throwable, ThrowableProxy> seen) {
     ThrowableProxy tp = seen.get(t);
     if (tp != null) {
+      // TODO: I hope I interpret isCyclic correctly
+      tp.isCyclic = true;
       return tp;
     }
     ThrowableProxy proxy = new ThrowableProxy(t, parent);
@@ -99,6 +101,11 @@ public final class ThrowableProxy implements IThrowableProxy {
         IThrowableProxy[] nsuppressed = Arrays.copyOf(supp, supp.length + 1);
         nsuppressed[supp.length] = supressedProxy;
         return nsuppressed;
+      }
+
+      @Override
+      public boolean isCyclic() {
+        return to.isCyclic();
       }
     };
   }
@@ -173,6 +180,11 @@ public final class ThrowableProxy implements IThrowableProxy {
   @Override
   public String toString() {
     return "ThrowableProxy{" + "throwable=" + throwable + ", className=" + className + ", message=" + message + '}';
+  }
+
+  @Override
+  public boolean isCyclic() {
+    return this.isCyclic;
   }
 
 

@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.ParametersAreNonnullByDefault;
 import org.slf4j.Marker;
+import org.slf4j.event.KeyValuePair;
 import org.spf4j.base.Arrays;
 import org.spf4j.base.Slf4jMessageFormatter;
 import org.spf4j.base.avro.FileLocation;
@@ -71,7 +72,7 @@ public final class Converters {
     String fileName = stackTraceElement.getFileName();
     return new StackTraceElement(new Method(className, stackTraceElement.getMethodName()),
             fileName == null ? null : new FileLocation(fileName, stackTraceElement.getLineNumber(), -1),
-            org.spf4j.base.PackageInfo.getPackageInfo(className));
+            org.spf4j.base.PackageInfo.getPackageInfo(className).toAvro());
   }
 
   public static List<StackTraceElement> convert(final StackTraceElementProxy[] stackTraces) {
@@ -182,7 +183,7 @@ public final class Converters {
   // CC_CYCLOMATIC_COMPLEXITY is a walid concern, will need to revisit this.
   public static LogRecord convert(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
-    Marker marker = event.getMarker();
+    List<Marker> markers = event.getMarkerList();
     Object[] arguments = event.getArgumentArray();
     if (arguments == null) {
       arguments = Arrays.EMPTY_OBJ_ARRAY;
@@ -247,7 +248,8 @@ public final class Converters {
       } else {
         xArgs = new ArrayList<>(nrXArgs);
       }
-      attribs = Maps.newHashMapWithExpectedSize(nrAttribs + (marker == null ? 0 : 1));
+      List<KeyValuePair> keyValuePairs = event.getKeyValuePairs();
+      attribs = Maps.newHashMapWithExpectedSize(nrAttribs + markers.size() + keyValuePairs.size());
       for (int i = index; i < arguments.length; i++) {
         Object obj = arguments[i];
         if (obj instanceof LogAttribute) {
@@ -259,8 +261,11 @@ public final class Converters {
           xArgs.add(obj);
         }
       }
-      if (marker != null) {
+      for (Marker marker : markers) {
         attribs.put(marker.getName(), marker);
+      }
+      for (KeyValuePair kv : keyValuePairs) {
+        attribs.put(kv.key, kv.value);
       }
     }
     Map<String, String> mdc = event.getMDCPropertyMap();
