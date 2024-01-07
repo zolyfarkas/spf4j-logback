@@ -184,6 +184,9 @@ public final class Converters {
   public static LogRecord convert(final ILoggingEvent event) {
     IThrowableProxy extraThrowable = event.getThrowableProxy();
     List<Marker> markers = event.getMarkerList();
+    if (markers == null) {
+      markers = Collections.emptyList();
+    }
     Object[] arguments = event.getArgumentArray();
     if (arguments == null) {
       arguments = Arrays.EMPTY_OBJ_ARRAY;
@@ -249,6 +252,9 @@ public final class Converters {
         xArgs = new ArrayList<>(nrXArgs);
       }
       List<KeyValuePair> keyValuePairs = event.getKeyValuePairs();
+      if (keyValuePairs == null) {
+        keyValuePairs = Collections.emptyList();
+      }
       attribs = Maps.newHashMapWithExpectedSize(nrAttribs + markers.size() + keyValuePairs.size());
       for (int i = index; i < arguments.length; i++) {
         Object obj = arguments[i];
